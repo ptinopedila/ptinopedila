@@ -1,0 +1,10 @@
+type: rpm-ostree
+install:
+  - texlive-scheme-basic
+  - texlive-import
+  - latexmk
+  - texlive-adjustbox
+  - texlive-appendix
+  - texlive-tex4ht
+  - texlive-collection-langgreek
+  - texlive-collection-langenglish

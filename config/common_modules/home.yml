@@ -1,0 +1,7 @@
+- type: rpm-ostree
+  install:
+    - nmap
+
+- type: files
+  files:
+    - yafti-home.yml: /usr/share/ublue-os/firstboot/yafti.yml

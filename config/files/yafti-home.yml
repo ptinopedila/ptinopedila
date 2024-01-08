@@ -1,0 +1,211 @@
+title: Welcome to Ptinopedila-yafti
+properties:
+  mode: "run-once"
+
+screens:
+  first-screen:
+    source: yafti.screen.title
+    values:
+      title: "Welcome to Ptinopedila-yafti (Beta)"
+      icon: "/path/to/icon"
+      description: |
+        Applications are also installing in the background, the system will notify you when it is finished.
+
+  can-we-modify-your-flatpaks:
+    source: yafti.screen.consent
+    values:
+      title: Remove fedora remote and add the flathub remote for --system
+      condition:
+        run: /usr/bin/flatpak remotes --system | /usr/bin/grep -q fedora || { /usr/bin/flatpak remotes --system | /usr/bin/grep -q 'flathub' && exit 1 || exit 0; }
+      description: |
+        This tool modifies your flatpaks and flatpak sources. If you do not want to do this exit the installer.
+        For new users just do it (tm)
+      actions:
+        - run: /usr/bin/flatpak remote-delete fedora --force --system || true
+        - run: /usr/bin/flatpak remote-delete fedora --force --user || true
+        - run: /usr/bin/flatpak remote-delete fedora-testing --force --system || true
+        - run: /usr/bin/flatpak remote-delete fedora-testing --force --user || true
+        - run: /usr/bin/flatpak remote-delete flathub --force --user || true
+        - run: /usr/bin/flatpak remote-add --if-not-exists --system flathub https://flathub.org/repo/flathub.flatpakrepo
+
+  can-we-enable-printing:
+    source: yafti.screen.consent
+    values:
+      title: Printing
+      description: |
+        The cups printing service is disabled by default to reduce attack surface. If you need printing support, run "just enable-cups" manually.
+      actions:
+        - run: just enable-cups
+
+  can-we-add-user-to-libvirt:
+    source: yafti.screen.consent
+    values:
+      title: Add user to libvirt
+      condition:
+        run: /usr/bin/groups | /usr/bin/grep --quiet wheel && { /usr/bin/groups | /usr/bin/grep --quiet libvirt && exit 1 || exit 0; }
+      description: |
+        Make your life easier when working with virtual machines.
+      actions:
+        - run: pkexec /usr/sbin/usermod -a -G libvirt $USER
+
+  applications:
+    source: yafti.screen.package
+    values:
+      title: Application Installation
+      show_terminal: true
+      package_manager: yafti.plugin.flatpak
+      package_manager_defaults:
+        user: false
+        system: true
+      groups:
+        Yaru-theme:
+          description: Yaru (Ubuntu) theme and variants
+          default: true
+          packages:
+            - Yaru-Blue-dark: org.gtk.Gtk3theme.Yaru-Blue-dark//stable
+            - Yaru-Blue-dark: org.gtk.Gtk3theme.Yaru-Blue-dark//stable
+            - Yaru-Blue-light: org.gtk.Gtk3theme.Yaru-Blue-light//stable
+            - Yaru-Blue-light: org.gtk.Gtk3theme.Yaru-Blue-light//stable
+            - Yaru-Deepblue-dark: org.gtk.Gtk3theme.Yaru-Deepblue-dark//stable
+            - Yaru-Deepblue-dark: org.gtk.Gtk3theme.Yaru-Deepblue-dark//stable
+            - Yaru-Deepblue-light: org.gtk.Gtk3theme.Yaru-Deepblue-light//stable
+            - Yaru-Deepblue-light: org.gtk.Gtk3theme.Yaru-Deepblue-light//stable
+            - Yaru-Purple-dark: org.gtk.Gtk3theme.Yaru-Purple-dark//stable
+            - Yaru-Purple-dark: org.gtk.Gtk3theme.Yaru-Purple-dark//stable
+            - Yaru-Purple-light: org.gtk.Gtk3theme.Yaru-Purple-light//stable
+            - Yaru-Purple-light: org.gtk.Gtk3theme.Yaru-Purple-light//stable
+            - Yaru-Purple: org.gtk.Gtk3theme.Yaru-Purple//stable
+            - Yaru-Purple: org.gtk.Gtk3theme.Yaru-Purple//stable
+        Desktop:
+          description: Desktop Utilities
+          default: true
+          packages:
+            - Audacity: org.audacityteam.Audacity
+            - Camera Controls: hu.irl.cameractrls
+            - Celluloid media player: io.github.celluloid_player.Celluloid
+            - Chrome: com.google.Chrome
+            - Dconf editor: ca.desrt.dconf-editor
+            - Discord: com.discordapp.Discord
+            - Easy Effects: com.github.wwmm.easyeffects
+            - ffmpeg: org.freedesktop.Platform.ffmpeg-full//22.08
+            - ffmpeg: org.freedesktop.Platform.ffmpeg-full//23.08
+            - Firefox: org.mozilla.firefox
+            - Flatseal: com.github.tchx84.Flatseal
+            - GIMP: org.gimp.GIMP
+            - Gstreamer vaapi 22.08: org.freedesktop.Platform.GStreamer.gstreamer-vaapi//22.08
+            - Gstreamer vaapi 23.08: org.freedesktop.Platform.GStreamer.gstreamer-vaapi//23.08
+            - Joplin: net.cozic.joplin_desktop
+            - Libre Office: org.libreoffice.LibreOffice
+            - Mission Cencter: io.missioncenter.MissionCenter
+            - Mpv: io.mpv.Mpv
+            - PinApp Menu Editor: io.github.fabrialberio.pinapp
+            - qpwgraph: org.rncbc.qpwgraph
+            - Signal: org.signal.Signal
+            - Skype: com.skype.Client
+            - Spotify: com.spotify.Client
+            - Stremio: com.stremio.Stremio
+            - Thunderbird: org.mozilla.Thunderbird
+            - Transmission: com.transmissionbt.Transmission
+            - Volume controls: org.pulseaudio.pavucontrol
+            - Warehouse for flatpaks: io.github.flattool.Warehouse
+        OBS:
+          description: OBS
+          default: true
+          packages:
+            - OBS - Gstreamer VAAPI: com.obsproject.Studio.Plugin.GStreamerVaapi
+            - OBS - Gstreamer: com.obsproject.Studio.Plugin.Gstreamer
+            - OBS - VkCapture 22.08: org.freedesktop.Platform.VulkanLayer.OBSVkCapture//22.08
+            - OBS - VkCapture 23.08: org.freedesktop.Platform.VulkanLayer.OBSVkCapture//23.08
+            - OBS Studio: com.obsproject.Studio
+        Gnome:
+          description: Gnome things
+          default: true
+          packages:
+            - adw-gtk3-dark: org.gtk.Gtk3theme.adw-gtk3-dark
+            - adw-gtk3: org.gtk.Gtk3theme.adw-gtk3
+            - Calculator: org.gnome.Calculator
+            - Calendar: org.gnome.Calendar
+            - Camera: org.gnome.Snapshot
+            - Characters: org.gnome.Characters
+            - Cheese: org.gnome.Cheese
+            - Clocks: org.gnome.clocks
+            - Color Picker: nl.hjdskes.gcolor3
+            - Connections: org.gnome.Connections
+            - Contacts: org.gnome.Contacts
+            - Disk Usage Analyzer: org.gnome.baobab
+            - Evince: org.gnome.Evince
+            - Extension Manager: com.mattjakeman.ExtensionManager
+            - Font Viewer: org.gnome.font-viewer
+            - Gdm Settings: io.github.realmazharhussain.GdmSettings
+            - Gnome extensions: org.gnome.Extensions
+            - gThumb: org.gnome.gThumb
+            - Image Viewer: org.gnome.Loupe
+            - Logs: org.gnome.Logs
+            - Maps: org.gnome.Maps
+            - Nautilus Previewer: org.gnome.NautilusPreviewer
+            - Simple Scan: org.gnome.SimpleScan
+            - Sound Recorder: org.gnome.SoundRecorder
+            - TextEditor: org.gnome.TextEditor
+            - VideoTrimmer: org.gnome.gitlab.YaLTeR.VideoTrimmer
+            - Weather: org.gnome.Weather
+        Workstation:
+          description: Tools for work
+          default: true
+          packages:
+            - Calibre: com.calibre_ebook.calibre
+            - gitg: org.gnome.gitg
+            - Obsidian: md.obsidian.Obsidian
+            - Remmina: org.remmina.Remmina
+            - Xournal++: com.github.xournalpp.xournalpp
+            - Zotero: org.zotero.Zotero
+        Laptop:
+          description: Laptop things
+          default: false
+          packages:
+            - GNOME Power Statistics: org.gnome.PowerStats
+            - TLP UI: com.github.d4nj1.tlpui
+        Gaming:
+          description: Game Launchers and tools
+          default: false
+          packages:
+            - Bottles: com.usebottles.bottles
+            - gamescope 22.08: com.valvesoftware.Steam.Utility.gamescope//22.08
+            - gamescope 23.08: com.valvesoftware.Steam.Utility.gamescope//23.08
+            - Heroic Games Launcher: com.heroicgameslauncher.hgl
+            - MangoHUD: org.freedesktop.Platform.VulkanLayer.MangoHud//22.08
+            - MangoHUD: org.freedesktop.Platform.VulkanLayer.MangoHud//23.08
+            - Proton Plus for Steam: com.vysp3r.ProtonPlus
+            - ProtonUp-Qt: net.davidotek.pupgui2
+            - Steam: com.valvesoftware.Steam
+        Extras:
+          description: Extra packages
+          default: false
+          packages:
+            - Anydesk: com.anydesk.Anydesk
+            - Audio Sharing: de.haeckerfelix.AudioSharing
+            - Authenticator: com.belmoussaoui.Authenticator
+            - Black Box: com.raggesilver.BlackBox
+            - Burnin fix: io.github.vinser.burnfix
+            - Cockpit Client: org.cockpit_project.CockpitClient
+            - Déjà Dup Backups: org.gnome.DejaDup
+            - Fedora Media Writer: org.fedoraproject.MediaWriter
+            - Font Downloader: org.gustavoperedo.FontDownloader
+            - LocalSend: org.localsend.localsend_app
+            - Pinta - (painting): com.github.PintaProject.Pinta
+            - Podman Desktop: io.podman_desktop.PodmanDesktop
+            - SyncThingy: com.github.zocker_160.SyncThingy
+            - Vorta (backup): com.borgbase.Vorta
+  final-screen:
+    source: yafti.screen.title
+    values:
+      title: "All done!"
+      icon: "/path/to/icon"
+      links:
+        - "Install More Applications":
+            run: /usr/bin/gnome-software
+        - "My github, the curator of the list":
+            run: /usr/bin/xdg-open https://github.com/ispanos
+        - "Yafti":
+            run: /usr/bin/xdg-open https://github.com/ublue-os/yafti
+      description: |
+        Have fun now.

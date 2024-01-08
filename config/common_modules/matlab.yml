@@ -1,0 +1,17 @@
+type: rpm-ostree
+install:
+  - fontconfig
+  - freetype
+  - gcc # Needed compiler
+  - gcc-g++ # Needed compiler
+  - gfortran # Needed compiler
+  - libnsl # legacy version of libnsl library
+  - libva-utils
+  - libva-vdpau-driver
+  - libX11-devel
+  - libxcrypt-compat # provides libcrypt.so.1
+  - libXext-devel
+  - libXi-devel
+  - libXmu-devel
+  - libXtst-devel
+  - vdpauinfo

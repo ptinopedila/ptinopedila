@@ -1,0 +1,8 @@
+# Basic desktop packages
+type: rpm-ostree
+install:
+  - ddccontrol-gtk
+  - firewall-config
+  - mediainfo
+  - fontawesome-fonts-web
+  - google-carlito-fonts
