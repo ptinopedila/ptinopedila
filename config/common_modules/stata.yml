@@ -1,0 +1,9 @@
+- type: rpm-ostree
+  install:
+    - gtk2
+    - libpng12
+    - ncurses-devel
+
+- type: script
+  scripts:
+    - stata.sh

@@ -1,0 +1,8 @@
+type: rpm-ostree
+install:
+  - file-roller-nautilus
+  - gnome-shell-extension-caffeine
+  - gnome-shell-extension-gamemode
+  - gnome-shell-extension-dash-to-panel
+  - gnome-shell-extension-just-perfection
+  - wofi
