@@ -11,7 +11,6 @@ install:
   - procinfo
   - procs # A modern replacement for ps
   - pv # A tool for monitoring the progress of data through a pipeline.
-  - usermod
   - zsh
   - zsh-autosuggestions
   # - mailcap tree-sitter-cli wl-clipboard xdg-utils xsel # neovim weak deps: 13M (+ 27M =40M )
