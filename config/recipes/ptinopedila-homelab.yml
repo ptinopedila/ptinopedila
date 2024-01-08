@@ -19,13 +19,13 @@ modules:
   # - from-file: common_modules/dynare.yml
   # - from-file: common_modules/matlab.yml
   # - from-file: common_modules/r.yml
-  - from-file: common_modules/stata.yml
-  - from-file: common_modules/tex.yml
-  - from-file: common_modules/ws.yml
+  # - from-file: common_modules/stata.yml
+  # - from-file: common_modules/tex.yml
+  # - from-file: common_modules/ws.yml
 
-  - from-file: common_modules/dropbox.yml
-  - from-file: common_modules/home.yml
+  # - from-file: common_modules/dropbox.yml
+  # - from-file: common_modules/home.yml
 
-  - from-file: common_modules/secureblue/common-scripts.yml
+  # - from-file: common_modules/secureblue/common-scripts.yml
 
   - type: yafti
