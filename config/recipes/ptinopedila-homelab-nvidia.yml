@@ -16,9 +16,9 @@ modules:
   - from-file: common_modules/gnome.yml
   - from-file: common_modules/desktop-minimal.yml
 
-  - from-file: common_modules/dynare.yml
-  - from-file: common_modules/matlab.yml
-  - from-file: common_modules/r.yml
+  # - from-file: common_modules/dynare.yml
+  # - from-file: common_modules/matlab.yml
+  # - from-file: common_modules/r.yml
   - from-file: common_modules/stata.yml
   - from-file: common_modules/tex.yml
   - from-file: common_modules/ws.yml
