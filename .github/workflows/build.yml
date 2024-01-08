@@ -4,7 +4,7 @@
 # Only the branch called `live` is published.
 
 
-name: build-ublue
+name: build-ptinopedila
 on: # https://docs.github.com/en/actions/using-workflows/events-that-trigger-workflows
   schedule:
     - cron: "30 16 * * *"
@@ -12,7 +12,7 @@ on: # https://docs.github.com/en/actions/using-workflows/events-that-trigger-wor
     branches:
       - live
       - template
-      - main
+      - dev
     paths-ignore: # don't rebuild if only documentation has changed
       - "**.md"
   pull_request:
@@ -39,7 +39,8 @@ jobs:
         # Add recipes for all the images you want to build here.
         # Don't add module configuration files, you will get errors.
         recipe:
-          - recipe.yml
+          - recipes/ptinopedila-homelab-nvidia.yml
+          - recipes/ptinopedila-homelab.yml
 # !!!
 
     steps:
