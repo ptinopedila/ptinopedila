@@ -1,5 +1,5 @@
 type: rpm-ostree
-remove:
+install:
   - cmake
   - dialog
   - fd-find
@@ -18,7 +18,7 @@ remove:
   - python3-sphinx # Python documentation generator
   - python3-tqdm
   - qpdf # Editing pdf files
-  - ShellCheck
+  # - ShellCheck
   - sqlite
   - sqlitebrowser
   - yamllint

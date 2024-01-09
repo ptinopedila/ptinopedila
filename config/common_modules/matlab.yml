@@ -7,7 +7,7 @@ install:
   - gfortran # Needed compiler
   - libnsl # legacy version of libnsl library
   - libva-utils
-  - libva-vdpau-driver
+  # - libva-vdpau-driver
   - libX11-devel
   - libxcrypt-compat # provides libcrypt.so.1
   - libXext-devel
