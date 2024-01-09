@@ -20,7 +20,7 @@ modules:
   # - from-file: common_modules/matlab.yml
   # - from-file: common_modules/r.yml
   # - from-file: common_modules/stata.yml
-  # - from-file: common_modules/tex.yml
+  - from-file: common_modules/tex.yml
   - from-file: common_modules/ws.yml
 
   - from-file: common_modules/dropbox.yml
