@@ -1,6 +1,6 @@
 type: script
 scripts:
-  - secureblue/auths-elect.sh
+  - secureblue/auth-select.sh
   - secureblue/disable-cups.sh
   # # this sets up the proper policy & signing files for signed images to work
   # - signing.sh
