@@ -1,7 +1,7 @@
-- type: rpm-ostree
-  install:
-    - nmap
+# - type: rpm-ostree
+#   install:
+#     - nmap
 
-- type: files
-  files:
-    - home/usr: /usr
+type: files
+files:
+  - home/usr: /usr
