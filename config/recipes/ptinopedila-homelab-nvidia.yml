@@ -4,7 +4,7 @@ name: ptinopedila-homelab-nvidia
 description: "Bluefin main for economists (soon)."
 
 # the base image to build on top of (FROM) and the version tag to use
-base-image: ghcr.io/ublue-os/bluefin-nvidia
+base-image: ghcr.io/ublue-os/bluefin-dx-nvidia
 image-version: latest
 
 # list of modules, executed in order
