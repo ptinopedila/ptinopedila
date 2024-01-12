@@ -29,6 +29,6 @@ modules:
   - from-file: common_modules/ws.yml
 
   - from-file: common_modules/dropbox.yml
-  - from-file: common_modules/home.yml
+  - from-file: common_modules/home-files.yml
 
   - type: yafti
