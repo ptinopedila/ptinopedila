@@ -1,0 +1,117 @@
+[org/gnome/shell] 
+favorite-apps = ['chromium-browser.desktop', 'org.mozilla.firefox.desktop', 'org.mozilla.Thunderbird.desktop', 'org.gnome.Nautilus.desktop', 'org.gnome.Rhythmbox3.desktop', 'org.libreoffice.LibreOffice.writer.desktop', 'org.gnome.Software.desktop', 'code.desktop', 'org.gnome.Prompt.desktop', 'ubuntu.desktop', 'yelp.desktop']
+enabled-extensions=['blur-my-shell@aunetx', 'gsconnect@andyholmes.github.io', 'user-theme@gnome-shell-extensions.gcampax.github.com', 'caffeine@patapon.info', 'just-perfection-desktop@just-perfection', 'appindicatorsupport@rgcjonas.gmail.com']
+
+[org/gnome/desktop/interface]
+enable-hot-corners=false
+clock-show-weekday=true
+cursor-theme="Yaru"
+icon-theme="Yaru-blue"
+gtk-theme="Yaru-blue"
+font-antialiasing="rgba"
+font-name="Ubuntu 12"
+document-font-name="Ubuntu 12"
+monospace-font-name="Ubuntu Mono 12"
+
+[org/gnome/desktop/sound]
+allow-volume-above-100-percent=true
+theme-name="freedesktop"
+event-sounds=false
+input-feedback-sounds=false
+
+
+[org/gnome/desktop/wm/preferences]
+button-layout=":minimize,maximize,close"
+focus-mode='sloppy'
+title-bar-font='Ubuntu Bold 12'
+
+[org/gnome/desktop/wm/keybindings]
+cycle-windows=['<Alt>Tab']
+cycle-windows-backward=['<Shift><Alt>Tab']
+switch-applications=['<Super>Tab']
+switch-applications-backward=['<Shift><Super>Tab']
+
+[org/gnome/desktop/peripherals/touchpad]
+tap-to-click=true
+
+[org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/custom0]
+binding='<Control><Alt>t'
+command='xdg-terminal-exec'
+name='Prompt'
+
+
+[org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/custom1]
+binding='<Control><Shift>Escape'
+command="flatpak run io.missioncenter.MissionCenter"
+name='mission-center'
+
+[org/gnome/settings-daemon/plugins/media-keys]
+custom-keybindings=['/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/custom0/', '/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/custom1/']
+home=['<Super>e']
+
+[org/gnome/settings-daemon/plugins/power]
+power-button-action='interactive'
+
+[org/gtk/gtk4/settings/file-chooser]
+date-format='regular'
+location-mode='path-bar'
+show-hidden=false
+show-size-column=true
+show-type-column=true
+sidebar-width=157
+sort-column='name'
+sort-directories-first=true
+sort-order='ascending'
+type-format='category'
+
+[org/gtk/settings/file-chooser]
+date-format='regular'
+location-mode='path-bar'
+show-hidden=false
+show-size-column=true
+show-type-column=true
+sidebar-width=157
+sort-column='name'
+sort-directories-first=true
+sort-order='ascending'
+type-format='category'
+
+[org/gnome/software]
+allow-updates=false
+download-updates=false
+download-updates-notify=false
+
+[com/github/stunkymonkey/nautilus-open-any-terminal]
+terminal='prompt'
+keybindings=''
+new-tab=false
+flatpak='off'
+
+[org/gnome/shell/extensions/Logo-menu]
+menu-button-icon-image=1
+menu-button-terminal='xdg-terminal-exec'
+menu-button-system-monitor='flatpak run io.missioncenter.MissionCenter'
+menu-button-extensions-app='com.mattjakeman.ExtensionManager.desktop'
+
+[org/gnome/Prompt]
+restore-session=false
+restore-window-size=false
+
+[org/gnome/desktop/notifications]
+show-in-lock-screen=false
+
+[org/gnome/nautilus/preferences]
+search-view='list-view'
+show-create-link=true
+
+[org/gnome/nautilus/list-view]
+default-zoom-level='small'
+
+[org/gnome/nautilus/compression]
+default-compression-format='zip'
+
+[org/gnome/desktop/session]
+idle-delay=uint32 300
+
+[desktop/ibus/panel/emoji]
+hotkey=['<Control>semicolon']
