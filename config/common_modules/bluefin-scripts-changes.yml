@@ -1,0 +1,4 @@
+type: script
+scripts:
+  - bleufin-rename.sh
+  - bleufin-disable-yafti.sh
