@@ -2,3 +2,4 @@ type: rpm-ostree
 install:
   - nmap
   - yt-dlp
+  - steam
