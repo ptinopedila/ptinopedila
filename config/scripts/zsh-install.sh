@@ -4,31 +4,31 @@
 set -oue pipefail
 
 
-echo 'autoload -U colors && colors'
-echo 'setopt autocd'
-echo ''
+echo 'autoload -U colors && colors' >> /etc/zshrc
+echo 'setopt autocd' >> /etc/zshrc
+echo '' >> /etc/zshrc
 
-echo '# Include hidden files in autocomplete:'
-echo '_comp_options+=(globdots)'
-echo ''
+echo '# Include hidden files in autocomplete:' >> /etc/zshrc
+echo '_comp_options+=(globdots)' >> /etc/zshrc
+echo '' >> /etc/zshrc
 
-echo 'bindkey "^[[1;3C" forward-word'
-echo 'bindkey "^[[1;3D" backward-word'
-echo ''
-echo '# History'
-echo 'export HISTFILE=$ZDOTDIR/history'
-echo '[[ -f "$HISTFILE" ]] || touch $HISTFILE'
-echo 'export HISTCONTROL=ignoredups:erasedups'
-echo 'export HISTSIZE=9999'
-echo 'export SAVEHIST=9999'
-echo 'setopt appendhistory'
-echo ''
+echo 'bindkey "^[[1;3C" forward-word' >> /etc/zshrc
+echo 'bindkey "^[[1;3D" backward-word' >> /etc/zshrc
+echo '' >> /etc/zshrc
+echo '# History' >> /etc/zshrc
+echo 'export HISTFILE=$ZDOTDIR/history' >> /etc/zshrc
+echo '[[ -f "$HISTFILE" ]] || touch $HISTFILE' >> /etc/zshrc
+echo 'export HISTCONTROL=ignoredups:erasedups' >> /etc/zshrc
+echo 'export HISTSIZE=9999' >> /etc/zshrc
+echo 'export SAVEHIST=9999' >> /etc/zshrc
+echo 'setopt appendhistory' >> /etc/zshrc
+echo '' >> /etc/zshrc
 
-echo '[ -f "$HOME/.config/aliasrc" ] && source "$HOME/.config/aliasrc"'
-echo ''
+echo '[ -f "$HOME/.config/aliasrc" ] && source "$HOME/.config/aliasrc"' >> /etc/zshrc
+echo '' >> /etc/zshrc
 
-echo '[ -f /usr/bin/starship ] && eval "$(starship init zsh)"'
-echo 'source /usr/share/zsh-autosuggestions/zsh-autosuggestions.zsh'
+echo '[ -f /usr/bin/starship ] && eval "$(starship init zsh)"' >> /etc/zshrc
+echo 'source /usr/share/zsh-autosuggestions/zsh-autosuggestions.zsh' >> /etc/zshrc
 
 # fsh
 git clone https://github.com/zdharma-continuum/fast-syntax-highlighting /usr/share/fsh
