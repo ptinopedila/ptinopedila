@@ -1,3 +1,0 @@
-#!/usr/bin/env zsh
-
-source /usr/share/fsh/fast-syntax-highlighting.plugin.zsh
