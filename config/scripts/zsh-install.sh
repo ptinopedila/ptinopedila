@@ -35,4 +35,4 @@ git clone https://github.com/zdharma-continuum/fast-syntax-highlighting /usr/sha
 
 echo 'source /usr/share/fsh/fast-syntax-highlighting.plugin.zsh' >> /etc/zshrc
 
-echo 'ZDOTDIR=$HOME/.config/zsh' > /etc/zsh/zshenv
+echo 'ZDOTDIR=$HOME/.config/zsh' > /etc/zshenv
