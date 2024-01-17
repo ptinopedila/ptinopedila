@@ -18,11 +18,16 @@ echo 'bindkey "^[[1;3D" backward-word' >> /etc/zshrc
 echo '' >> /etc/zshrc
 echo '# History' >> /etc/zshrc
 echo 'export HISTFILE=$ZDOTDIR/history' >> /etc/zshrc
-echo '[[ -f "$HISTFILE" ]] || touch $HISTFILE' >> /etc/zshrc
+echo '[[ -f "$HISTFILE" ]] || touch $HISTFILE || export HISTFILE="${XDG_CACHE_HOME:-$HOME/.cache}/zsh_history" && touch $HISTFILE' >> /etc/zshrc
 echo 'export HISTCONTROL=ignoredups:erasedups' >> /etc/zshrc
-echo 'export HISTSIZE=9999' >> /etc/zshrc
-echo 'export SAVEHIST=9999' >> /etc/zshrc
+echo 'export HISTSIZE=99999' >> /etc/zshrc
+echo 'export SAVEHIST=99999' >> /etc/zshrc
 echo 'setopt appendhistory' >> /etc/zshrc
+echo '# Immediate append' >> /etc/zshrc
+echo 'setopt INC_APPEND_HISTORY' >> /etc/zshrc
+echo 'export HISTTIMEFORMAT="[%F %T] "' >> /etc/zshrc
+echo '# Add timestamp to history' >> /etc/zshrc
+echo 'setopt EXTENDED_HISTORY' >> /etc/zshrc
 echo '' >> /etc/zshrc
 
 echo '[ -f "$HOME/.config/aliasrc" ] && source "$HOME/.config/aliasrc"' >> /etc/zshrc
