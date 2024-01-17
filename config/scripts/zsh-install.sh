@@ -3,6 +3,7 @@
 # Tell build process to exit if there are any errors.
 set -oue pipefail
 
+echo 'mkdir -p "${XDG_CONFIG_HOME:-$HOME/.config}/zsh"' >> /etc/zprofile
 
 echo 'autoload -U colors && colors' >> /etc/zshrc
 echo 'setopt autocd' >> /etc/zshrc
