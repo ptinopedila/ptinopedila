@@ -24,12 +24,12 @@ install:
   - octave-optim
   - octave-control
   # - texlive-scheme-minimal
-  - texlive-collection-publishers
-  - texlive-collection-latexextra
-  - texlive-collection-fontsextra
-  - texlive-collection-latexrecommended
-  - texlive-collection-science
-  - texlive-collection-plaingeneric
+  # - texlive-collection-publishers
+  # - texlive-collection-latexextra
+  # - texlive-collection-fontsextra
+  # - texlive-collection-latexrecommended
+  # - texlive-collection-science
+  # - texlive-collection-plaingeneric
   - texlive-lm
   - python3-sphinx
   - latexmk
