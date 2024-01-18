@@ -22,7 +22,7 @@ modules:
   - from-file: common_modules/secureblue/auth-select.yml
   - from-file: common_modules/secureblue/disable-cups.yml
 
-  # - from-file: common_modules/dynare.yml
+  - from-file: common_modules/dynare.yml
   - from-file: common_modules/matlab.yml
   - from-file: common_modules/r.yml
   - from-file: common_modules/stata-packages.yml
