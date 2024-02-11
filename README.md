@@ -12,9 +12,16 @@ Current issue is the size of the images and the limited resources github provide
 
 ## Images
 
+### Home
+
+Smaller images intended to be used with toolboxes for a light and flexible workstation at home.
+
+- ptinopedila-home
+- ptinopedila-home-nvidia
+
 ### Homelab
 
-Large images to set up an optimal work-from-home environment for your desktop or laptop.
+Larger images for an optimal work-from-home environment on your desktop or laptop. These images lack some important texlive packages and R-CRAN libraries due to GitHub's storage limitations.
 
 Currently built on top of [bluefin-dx](https://github.com/ublue-os/bluefin).
 

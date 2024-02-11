@@ -3,7 +3,6 @@
 # The builds can also be triggered manually in the Actions tab thanks to workflow dispatch.
 # Only the branch called `live` is published.
 
-
 name: build-ptinopedila
 on: # https://docs.github.com/en/actions/using-workflows/events-that-trigger-workflows
   schedule:
@@ -35,15 +34,15 @@ jobs:
       fail-fast: false
 
       matrix:
-# !!!
+        # !!!
         # Add recipes for all the images you want to build here.
         # Don't add module configuration files, you will get errors.
         recipe:
-          - recipes/ptinopedila-homelab-nvidia-lite.yml
-          - recipes/ptinopedila-homelab-lite.yml
+          - recipes/ptinopedila-home-nvidia.yml
+          - recipes/ptinopedila-home.yml
           - recipes/ptinopedila-homelab-nvidia.yml
           - recipes/ptinopedila-homelab.yml
-# !!!
+    # !!!
 
     steps:
       # Checkout push-to-registry action GitHub repository
@@ -164,9 +163,9 @@ jobs:
       - name: Maximize build space
         uses: AdityaGarg8/remove-unwanted-software@v2
         with:
-          remove-dotnet: 'true'
-          remove-android: 'true'
-          remove-haskell: 'true'
+          remove-dotnet: "true"
+          remove-android: "true"
+          remove-haskell: "true"
 
       - name: Maximize build space - Ublue
         uses: ublue-os/remove-unwanted-software@v6

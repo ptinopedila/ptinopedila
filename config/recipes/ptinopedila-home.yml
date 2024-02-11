@@ -1,10 +1,10 @@
 # image will be published to ghcr.io/<user>/<name>
-name: ptinopedila-homelab-nvidia-lite
+name: ptinopedila-home
 # description will be included in the image's metadata
 description: "Bluefin main for economists (soon)."
 
 # the base image to build on top of (FROM) and the version tag to use
-base-image: ghcr.io/ublue-os/bluefin-dx-nvidia
+base-image: ghcr.io/ublue-os/bluefin-dx
 image-version: latest
 
 # list of modules, executed in order
@@ -25,5 +25,7 @@ modules:
   - from-file: common_modules/dropbox.yml
   - from-file: common_modules/home-files.yml
   - from-file: common_modules/home-packages.yml
+
+  - from-file: common_modules/ws.yml
 
   - type: yafti
