@@ -13,4 +13,5 @@ install:
   - pv # A tool for monitoring the progress of data through a pipeline.
   - zsh
   - zsh-autosuggestions
+  - smartmontools
   # - mailcap tree-sitter-cli wl-clipboard xdg-utils xsel # neovim weak deps: 13M (+ 27M =40M )
