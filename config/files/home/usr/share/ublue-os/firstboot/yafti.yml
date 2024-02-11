@@ -169,8 +169,8 @@ screens:
           default: false
           packages:
             - Bottles: com.usebottles.bottles
-            - gamescope 22.08: com.valvesoftware.Steam.Utility.gamescope//22.08
-            - gamescope 23.08: com.valvesoftware.Steam.Utility.gamescope//23.08
+            - gamescope 22.08: org.freedesktop.Platform.VulkanLayer.gamescope//22.08
+            - gamescope 23.08: org.freedesktop.Platform.VulkanLayer.gamescope//23.08
             - Heroic Games Launcher: com.heroicgameslauncher.hgl
             - MangoHUD: org.freedesktop.Platform.VulkanLayer.MangoHud//22.08
             - MangoHUD: org.freedesktop.Platform.VulkanLayer.MangoHud//23.08
