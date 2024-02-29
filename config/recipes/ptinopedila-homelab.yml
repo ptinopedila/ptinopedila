@@ -35,3 +35,4 @@ modules:
   - from-file: common_modules/home-packages.yml
 
   - type: yafti
+  - type: signing # this sets up the proper policy & signing files for signed images to work fully
