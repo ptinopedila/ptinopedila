@@ -158,6 +158,7 @@ screens:
             - Remmina: org.remmina.Remmina
             - Xournal++: com.github.xournalpp.xournalpp
             - Zotero: org.zotero.Zotero
+            - SpeechNote: net.mkiol.SpeechNote
         Laptop:
           description: Laptop things
           default: false
