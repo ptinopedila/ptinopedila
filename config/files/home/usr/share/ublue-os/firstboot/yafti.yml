@@ -157,6 +157,7 @@ screens:
             - Obsidian: md.obsidian.Obsidian
             - Remmina: org.remmina.Remmina
             - Xournal++: com.github.xournalpp.xournalpp
+            - Rnote: com.github.flxzt.rnote
             - Zotero: org.zotero.Zotero
             - SpeechNote: net.mkiol.SpeechNote
         Laptop:
