@@ -1,4 +1,8 @@
 type: rpm-ostree
 install:
+  - fd-find
   - nmap
+  - pandoc
+  - pdftk-java # Editing pdf files
+  - qpdf # Editing pdf files
   - yt-dlp

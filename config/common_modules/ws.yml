@@ -2,11 +2,8 @@ type: rpm-ostree
 install:
   - cmake
   - dialog
-  - fd-find
   - git-lfs # Replaces large files with text pointers inside Git, while storing the file contents on a remote server.
   - npm
-  - pandoc
-  - pdftk-java # Editing pdf files
   - python3-autopep8
   - python3-matplotlib
   - python3-nbconvert # Converting Jupyter Notebooks - requires pandoc
@@ -17,8 +14,7 @@ install:
   - python3-seaborn
   - python3-sphinx # Python documentation generator
   - python3-tqdm
-  - qpdf # Editing pdf files
-  # - ShellCheck
   - sqlite
   - sqlitebrowser
   - yamllint
+  # - ShellCheck
