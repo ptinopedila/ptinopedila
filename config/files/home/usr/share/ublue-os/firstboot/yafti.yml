@@ -127,7 +127,6 @@ screens:
             - Calendar: org.gnome.Calendar
             - Camera: org.gnome.Snapshot
             - Characters: org.gnome.Characters
-            - Cheese: org.gnome.Cheese
             - Clocks: org.gnome.clocks
             - Color Picker: nl.hjdskes.gcolor3
             - Connections: org.gnome.Connections
