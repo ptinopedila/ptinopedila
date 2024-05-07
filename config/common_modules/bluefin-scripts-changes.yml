@@ -3,3 +3,4 @@ scripts:
   - bleufin-rename.sh
   - bleufin-disable-yafti.sh
   - bleufin-remove-dconf.sh
+  - enable-rpmfusion.sh
