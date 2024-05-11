@@ -2,6 +2,13 @@
 # vim:syntax=zsh
 # vim:filetype=zsh
 
+[[ ! -d "$ZDOTDIR" ]] && mkdir "$ZDOTDIR"
+
+if [[ ! -f "${ZDOTDIR:-$HOME}/.zshrc" ]]; then
+  echo "source /etc/zshrc" > "${ZDOTDIR:-$HOME}/.zshrc"
+  echo "echo Your zshrc is located in ${ZDOTDIR:-$HOME}/.zshrc. We are sourcing /etc/zshrc for you. Feel free to remove that line and create your own config." >> "${ZDOTDIR:-$HOME}/.zshrc"
+fi
+
 # Execute code in the background to not affect the current session
 (
     # <https://github.com/zimfw/zimfw/blob/master/login_init.zsh>
