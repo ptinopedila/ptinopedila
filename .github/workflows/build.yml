@@ -22,10 +22,10 @@ jobs:
       matrix:
         recipe:
           # !! Add your recipes here 
-          - recipes/ptinopedila-home-nvidia.yml
-          - recipes/ptinopedila-home.yml
-          - recipes/ptinopedila-homelab-nvidia.yml
-          - recipes/ptinopedila-homelab.yml
+          - ptinopedila-home-nvidia.yml
+          - ptinopedila-home.yml
+          - ptinopedila-homelab-nvidia.yml
+          - ptinopedila-homelab.yml
     steps:
        # the build is fully handled by the reusable github action
       - name: Build Custom Image
