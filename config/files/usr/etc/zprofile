@@ -1,3 +1,7 @@
+#!/usr/bin/env zsh
+# vim:syntax=zsh
+# vim:filetype=zsh
+
 #
 # /etc/zprofile and ~/.zprofile are run for login shells
 #
@@ -20,5 +24,3 @@ unset -f _src_etc_profile
 
 # eliminates duplicates in *paths
 typeset -gU cdpath fpath path
-
-[[ ! -d "$ZDOTDIR" ]] && mkdir -p "$ZDOTDIR"

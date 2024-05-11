@@ -3,6 +3,7 @@
 # vim:filetype=zsh
 
 export ZDOTDIR=$HOME/.config/zsh
+[[ ! -d "$ZDOTDIR" ]] && mkdir "$ZDOTDIR"
 
 # https://blog.patshead.com/2011/04/improve-your-oh-my-zsh-startup-time-maybe.html
 skip_global_compinit=1
@@ -16,7 +17,9 @@ export SYSTEM=$(uname -s)
 # Ensure that a non-login, non-interactive shell has a defined environment.
 if [[ ("$SHLVL" -eq 1 && ! -o LOGIN) && -s "${ZDOTDIR:-$HOME}/.zprofile" ]]; then
   source "/etc/zprofile"
-  source "${ZDOTDIR:-$HOME}/.zprofile"
+  if [[ -f "${ZDOTDIR:-$HOME}/.zprofile" ]]; then
+    source "${ZDOTDIR:-$HOME}/.zprofile"
+  fi
 fi
 
 export XDG_DATA_DIRS="$HOME/.nix-profile/share:/nix/var/nix/profiles/default/share:$XDG_DATA_DIRS"
