@@ -22,3 +22,33 @@ if [[ ("$SHLVL" -eq 1 && ! -o LOGIN) && -s "${ZDOTDIR:-$HOME}/.zprofile" ]]; the
 fi
 
 export XDG_DATA_DIRS="$HOME/.nix-profile/share:/nix/var/nix/profiles/default/share:$XDG_DATA_DIRS"
+
+[[ ! -d "$ZDOTDIR" ]] && mkdir "$ZDOTDIR"
+
+if [[ ! -f "${ZDOTDIR:-$HOME}/.zshrc" ]]; then
+  echo "source /etc/zshrc" > "${ZDOTDIR:-$HOME}/.zshrc"
+  echo "echo Your zshrc is located in ${ZDOTDIR:-$HOME}/.zshrc. We are sourcing /etc/zshrc for you. Feel free to remove that line and create your own config." >> "${ZDOTDIR:-$HOME}/.zshrc"
+fi
+
+# Execute code in the background to not affect the current session
+(
+    # <https://github.com/zimfw/zimfw/blob/master/login_init.zsh>
+    setopt LOCAL_OPTIONS EXTENDED_GLOB
+    autoload -U zrecompile
+    local ZSHCONFIG="${ZDOTDIR:-$HOME}/.zsh"
+
+    # Compile zcompdump, if modified, to increase startup speed.
+    zcompdump="${ZDOTDIR:-$HOME}/.zcompdump"
+    if [[ -s "$zcompdump" && (! -s "${zcompdump}.zwc" || "$zcompdump" -nt "${zcompdump}.zwc") ]]; then
+        zrecompile -pq "$zcompdump"
+    fi
+    # zcompile .zshrc
+    zrecompile -pq ${ZDOTDIR:-${HOME}}/.zshrc
+    zrecompile -pq ${ZDOTDIR:-${HOME}}/.zprofile
+    zrecompile -pq ${ZDOTDIR:-${HOME}}/.zshenv
+    # recompile all zsh or sh
+    for f in $ZSHCONFIG/**/*.*sh
+    do
+        zrecompile -pq $f
+    done
+) &!
