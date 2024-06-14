@@ -83,6 +83,7 @@ screens:
             - Audacity: org.audacityteam.Audacity
             - Camera Controls: hu.irl.cameractrls
             - Celluloid media player: io.github.celluloid_player.Celluloid
+            - Clapper media player: com.github.rafostar.Clapper
             - Chrome: com.google.Chrome
             - Dconf editor: ca.desrt.dconf-editor
             - Discord: com.discordapp.Discord
