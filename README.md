@@ -16,17 +16,10 @@ Current issue is the size of the images and the limited resources github provide
 
 Smaller images intended to be used with toolboxes for a light and flexible workstation at home.
 
-- ptinopedila-home
-- ptinopedila-home-nvidia
-
-### Homelab
-
-Larger images for an optimal work-from-home environment on your desktop or laptop. These images lack some important texlive packages and R-CRAN libraries due to GitHub's storage limitations.
-
 Currently built on top of [bluefin-dx](https://github.com/ublue-os/bluefin).
 
-- ptinopedila-homelab
-- ptinopedila-homelab-nvidia
+- ptinopedila-home
+- ptinopedila-home-nvidia
 
 ## Documentation
 
@@ -46,7 +39,7 @@ To rebase an existing Silverblue/Kinoite installation to the latest build:
 - First rebase to the unsigned image, to get the proper signing keys and policies installed:
 
   ```sh
-  rpm-ostree rebase ostree-unverified-registry:ghcr.io/ptinopedila/ptinopedila-homelab:latest
+  rpm-ostree rebase ostree-unverified-registry:ghcr.io/ptinopedila/ptinopedila-home:latest
   ```
 
 - Reboot to complete the rebase:
@@ -58,7 +51,7 @@ To rebase an existing Silverblue/Kinoite installation to the latest build:
 - Then rebase to the signed image, like so:
 
   ```sh
-  rpm-ostree rebase ostree-image-signed:docker://ghcr.io/ptinopedila/ptinopedila-homelab:latest
+  rpm-ostree rebase ostree-image-signed:docker://ghcr.io/ptinopedila/ptinopedila-home:latest
   ```
 
 - Reboot again to complete the installation
@@ -70,7 +63,7 @@ To rebase an existing Silverblue/Kinoite installation to the latest build:
 This repository builds date tags as well, so if you want to rebase to a particular day's build:
 
 ```sh
-rpm-ostree rebase ostree-image-signed:docker://ghcr.io/ptinopedila/ptinopedila-homelab:20230403
+rpm-ostree rebase ostree-image-signed:docker://ghcr.io/ptinopedila/ptinopedila-home:20230403
 ```
 
 This repository by default also supports signing.
