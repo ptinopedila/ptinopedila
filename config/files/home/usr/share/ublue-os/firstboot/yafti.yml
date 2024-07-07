@@ -85,7 +85,6 @@ screens:
             - Celluloid media player: io.github.celluloid_player.Celluloid
             - Clapper media player: com.github.rafostar.Clapper
             - Chrome: com.google.Chrome
-            - Dconf editor: ca.desrt.dconf-editor
             - Discord: com.discordapp.Discord
             - Easy Effects: com.github.wwmm.easyeffects
             - ffmpeg: org.freedesktop.Platform.ffmpeg-full//22.08
@@ -143,7 +142,6 @@ screens:
             - Logs: org.gnome.Logs
             - Maps: org.gnome.Maps
             - Nautilus Previewer: org.gnome.NautilusPreviewer
-            - Simple Scan: org.gnome.SimpleScan
             - Sound Recorder: org.gnome.SoundRecorder
             - TextEditor: org.gnome.TextEditor
             - VideoTrimmer: org.gnome.gitlab.YaLTeR.VideoTrimmer
