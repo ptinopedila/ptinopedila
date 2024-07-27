@@ -33,7 +33,7 @@ screens:
         Communication:
           description: Tools to communicate and collaborate
           default: false
-        packages:
+          packages:
             - Discord: com.discordapp.Discord
             - Signal: org.signal.Signal
             - Skype: com.skype.Client
