@@ -1,3 +1,4 @@
 type: script
 scripts:
   - cleanup.sh
+  - systemd.sh
