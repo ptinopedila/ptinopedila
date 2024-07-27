@@ -54,3 +54,7 @@ fi
 for i in /etc/yum.repos.d/rpmfusion-*; do
     sed -i 's@enabled=1@enabled=0@g' "$i"
 done
+
+# Remove ublue-flatpak-manager
+rm /usr/libexec/ublue-flatpak-manager
+rm /usr/lib/systemd/system/ublue-flatpak-manager.service
