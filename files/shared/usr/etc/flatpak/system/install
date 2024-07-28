@@ -8,7 +8,6 @@ app/io.missioncenter.MissionCenter/x86_64/stable
 app/org.fedoraproject.MediaWriter/x86_64/stable
 app/org.mozilla.firefox/x86_64/stable
 app/org.mozilla.Thunderbird/x86_64/stable
-runtime/org.freedesktop.Platform.ffmpeg-full/x86_64/23.08
 app/com.mattjakeman.ExtensionManager/x86_64/stable
 app/org.gnome.baobab/x86_64/stable
 app/org.gnome.Calculator/x86_64/stable
