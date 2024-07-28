@@ -2,7 +2,7 @@
 
 # Script Version
 VER=4
-VER_FILE="/etc/ublue/flatpak_manager_version"
+VER_FILE="/etc/ublue/flatpak_manager_version_ptinopedila"
 VER_RAN=$(cat $VER_FILE)
 NO_TOUCH_FILE="/etc/ublue/do_not_touch_flatpaks"
 
