@@ -2,4 +2,5 @@
 
 set -ouex pipefail
 
-systemctl enable ublue-system-flatpak-manager.service
+# Disable Bluefin's service that auto-updates flatpaks
+systemctl disable ublue-flatpak-manager.service
