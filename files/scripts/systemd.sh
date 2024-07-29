@@ -2,4 +2,4 @@
 
 set -ouex pipefail
 
-systemctl enable ublue-flatpak-manager.service
+systemctl enable ublue-system-flatpak-manager.service
