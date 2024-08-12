@@ -3,6 +3,6 @@
 # Tell build process to exit if there are any errors.
 set -oue pipefail
 
-rm /usr/etc/skel/.config/autostart/bluefin-firstboot.desktop
-rm /usr/etc/yafti.yml
-rm /usr/etc/profile.d/bluefin-firstboot.sh
+rm /etc/skel/.config/autostart/bluefin-firstboot.desktop
+rm /etc/yafti.yml
+rm /etc/profile.d/bluefin-firstboot.sh
