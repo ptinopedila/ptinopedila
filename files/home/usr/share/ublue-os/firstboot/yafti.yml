@@ -78,7 +78,7 @@ screens:
             - Color Picker: nl.hjdskes.gcolor3
             - Gnome Papers: org.gnome.Papers
             - Gdm Settings: io.github.realmazharhussain.GdmSettings
-            - Gnome extensions: org.gnome.Extensions
+            # - Gnome extensions: org.gnome.Extensions
             - VideoTrimmer: org.gnome.gitlab.YaLTeR.VideoTrimmer
         Workstation:
           description: Tools for work
