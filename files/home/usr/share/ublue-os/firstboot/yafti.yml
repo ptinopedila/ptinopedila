@@ -11,14 +11,14 @@ screens:
       description: |
         Applications are also installing in the background, the system will notify you when it is finished.
 
-  can-we-enable-printing:
-    source: yafti.screen.consent
-    values:
-      title: Printing
-      description: |
-        The cups printing service is disabled by default to reduce attack surface. If you need printing support, run "just enable-cups" manually.
-      actions:
-        - run: just enable-cups
+  # can-we-enable-printing:
+  #   source: yafti.screen.consent
+  #   values:
+  #     title: Printing
+  #     description: |
+  #       The cups printing service is disabled by default to reduce attack surface. If you need printing support, run "just enable-cups" manually.
+  #     actions:
+  #       - run: just enable-cups
 
   applications:
     source: yafti.screen.package
@@ -48,8 +48,7 @@ screens:
             - Chrome: com.google.Chrome
             - Easy Effects: com.github.wwmm.easyeffects
             - GIMP: org.gimp.GIMP
-            - Gstreamer vaapi 22.08: org.freedesktop.Platform.GStreamer.gstreamer-vaapi//22.08
-            - Gstreamer vaapi 23.08: org.freedesktop.Platform.GStreamer.gstreamer-vaapi//23.08
+            # - Gstreamer vaapi 23.08: org.freedesktop.Platform.GStreamer.gstreamer-vaapi//23.08
             - Joplin: net.cozic.joplin_desktop
             - Libre Office: org.libreoffice.LibreOffice
             - Mission Cencter: io.missioncenter.MissionCenter
@@ -103,10 +102,9 @@ screens:
           default: false
           packages:
             - Bottles: com.usebottles.bottles
-            - Gamescope 23.08: org.freedesktop.Platform.VulkanLayer.gamescope//23.08
+            - Gamescope: org.freedesktop.Platform.VulkanLayer.gamescope//24.08
             - Heroic Games Launcher: com.heroicgameslauncher.hgl
-            - MangoHUD: org.freedesktop.Platform.VulkanLayer.MangoHud//22.08
-            - MangoHUD: org.freedesktop.Platform.VulkanLayer.MangoHud//23.08
+            - MangoHUD: org.freedesktop.Platform.VulkanLayer.MangoHud//24.08
             - Proton Plus for Steam: com.vysp3r.ProtonPlus
             - ProtonUp-Qt: net.davidotek.pupgui2
             - Steam: com.valvesoftware.Steam
@@ -140,5 +138,7 @@ screens:
             run: /usr/bin/xdg-open https://github.com/ispanos
         - "Yafti":
             run: /usr/bin/xdg-open https://github.com/ublue-os/yafti
+        - "Common UNIX Printing System (CUPS) is disabled for security reasons. Run `just enable-cups` to enable it.":
+            run: /usr/bin/xdg-open https://universal-blue.discourse.group/docs?topic=42
       description: |
         Have fun now.
