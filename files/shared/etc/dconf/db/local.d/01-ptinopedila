@@ -5,9 +5,9 @@ enabled-extensions=['blur-my-shell@aunetx', 'gsconnect@andyholmes.github.io', 'u
 [org/gnome/desktop/interface]
 enable-hot-corners=false
 clock-show-weekday=true
-cursor-theme="Yaru"
-icon-theme="Yaru-blue"
-gtk-theme="Yaru-blue"
+cursor-theme="Adwaita"
+icon-theme="Adwaita"
+gtk-theme="adw-gtk3-dark"
 font-antialiasing="rgba"
 font-name="Ubuntu 12"
 document-font-name="Ubuntu 12"
