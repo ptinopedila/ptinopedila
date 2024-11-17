@@ -96,7 +96,7 @@ screens:
           default: false
           packages:
             - GNOME Power Statistics: org.gnome.PowerStats
-            - TLP UI: com.github.d4nj1.tlpui
+            # - TLP UI: com.github.d4nj1.tlpui
         Gaming:
           description: Game Launchers and tools
           default: false
