@@ -20,4 +20,4 @@ curl -L -o "$FILE_NAME" "$FULL_URL"
 
 # Install the package using rpm-ostree
 echo "Installing Dropbox RPM..."
-sudo rpm-ostree install "$FILE_NAME"
+rpm-ostree install "$FILE_NAME"
