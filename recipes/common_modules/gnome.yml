@@ -1,10 +1,13 @@
 type: dnf
 install:
-  - dconf-editor
-  - file-roller-nautilus
-  - gnome-shell-extension-caffeine
-  - gnome-shell-extension-dash-to-panel
-  - gnome-shell-extension-gamemode
-  - gnome-shell-extension-just-perfection
-  - simple-scan
-  - wofi
+  packages:
+    - install-weak-deps: false
+      packages:
+        - dconf-editor
+        - file-roller-nautilus
+        - gnome-shell-extension-caffeine
+        - gnome-shell-extension-dash-to-panel
+        - gnome-shell-extension-gamemode
+        - gnome-shell-extension-just-perfection
+        - simple-scan
+        - wofi

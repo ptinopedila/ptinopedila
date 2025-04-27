@@ -1,4 +1,7 @@
 type: dnf
 install:
-  - dropbox
-  - nautilus-dropbox
+  packages:
+    - install-weak-deps: false
+      packages:
+        - dropbox
+        - nautilus-dropbox

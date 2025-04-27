@@ -1,9 +1,12 @@
 # Basic desktop packages
 type: dnf
 install:
-  - ddccontrol-gtk
-  - firewall-config
-  - mediainfo
-  - fontawesome-fonts-web
-  - google-carlito-fonts
-  - chromium
+  packages:
+    - install-weak-deps: false
+      packages:
+        - ddccontrol-gtk
+        - firewall-config
+        - mediainfo
+        - fontawesome-fonts-web
+        - google-carlito-fonts
+        - chromium

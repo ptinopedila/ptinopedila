@@ -1,17 +1,20 @@
 type: dnf
 install:
-  - bat
-  - fd-find
-  - hddtemp
-  - jq
-  - lm_sensors
-  - lsd
-  - neovim
-  - openssh
-  - procinfo
-  - procs # A modern replacement for ps
-  - pv # A tool for monitoring the progress of data through a pipeline.
-  - zsh
-  - zsh-autosuggestions
-  - smartmontools
-  # - mailcap tree-sitter-cli wl-clipboard xdg-utils xsel # neovim weak deps: 13M (+ 27M =40M )
+  packages:
+    - install-weak-deps: false
+      packages:
+        - bat
+        - fd-find
+        - hddtemp
+        - jq
+        - lm_sensors
+        - lsd
+        - neovim
+        - openssh
+        - procinfo
+        - procs # A modern replacement for ps
+        - pv # A tool for monitoring the progress of data through a pipeline.
+        - zsh
+        - zsh-autosuggestions
+        - smartmontools
+        # - mailcap tree-sitter-cli wl-clipboard xdg-utils xsel # neovim weak deps: 13M (+ 27M =40M )
