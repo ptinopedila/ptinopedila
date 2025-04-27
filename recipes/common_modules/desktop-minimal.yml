@@ -1,5 +1,5 @@
 # Basic desktop packages
-type: rpm-ostree
+type: dnf
 install:
   - ddccontrol-gtk
   - firewall-config
