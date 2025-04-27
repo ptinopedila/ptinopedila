@@ -1,8 +1,7 @@
 type: dnf
 install:
+  install-weak-deps: false
   packages:
-    - install-weak-deps: false
-      packages:
-        - gtk2
-        - libpng12
-        - ncurses-devel
+    - gtk2
+    - libpng12
+    - ncurses-devel
