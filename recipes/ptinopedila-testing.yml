@@ -10,7 +10,7 @@ image-version: latest
 # list of modules, executed in order
 # you can include multiple instances of the same module
 modules:
-  - from-file: common_modules/bleufin-rename-dconf.yml
+  - from-file: common_modules/bluefin-rename-dconf.yml
   # - from-file: common_modules/bluefin-scripts-changes.yml
 
   - from-file: common_modules/common-packages.yml

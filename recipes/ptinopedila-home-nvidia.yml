@@ -10,7 +10,7 @@ image-version: latest
 # list of modules, executed in order
 # you can include multiple instances of the same module
 modules:
-  - from-file: common_modules/bluefin-scripts-changes.yml
+  - from-file: common_modules/bluefin-rename-dconf.yml
 
   - from-file: common_modules/common-packages.yml
   - from-file: common_modules/common-scripts.yml
@@ -22,11 +22,10 @@ modules:
   - from-file: common_modules/secureblue/auth-select.yml
   - from-file: common_modules/secureblue/disable-cups.yml
 
-  - from-file: common_modules/dropbox.yml
+  - from-file: common_modules/dropbox_rpm.yml
 
   - from-file: common_modules/cleanup.yml
 
   - from-file: common_modules/default-flatpaks.yml
 
-  # - type: yafti
   - type: signing # this sets up the proper policy & signing files for signed images to work fully

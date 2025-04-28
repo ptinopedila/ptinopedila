@@ -1,5 +1,7 @@
 #!/bin/bash
 
+set -oue pipefail
+
 # Dropbox Fedora RPM direct download redirect URL
 DOWNLOAD_PAGE="https://linux.dropbox.com/packages/fedora/"
 
