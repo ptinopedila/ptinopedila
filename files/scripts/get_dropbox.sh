@@ -23,3 +23,8 @@ curl -L -o "$FILE_NAME" "$FULL_URL"
 # Install the package using rpm-ostree
 echo "Installing Dropbox RPM..."
 rpm-ostree install "$FILE_NAME"
+
+# Disable the dropbox repo -- if present
+if [ - f /etc/yum.repos.d/dropbox.repo ]; then
+  echo "enabled=0" >> /etc/yum.repos.d/dropbox.repo
+fi
