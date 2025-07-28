@@ -1,0 +1,36 @@
+# Backup of the old flatpak list and default-flatpaks@v1 config
+type: default-flatpaks
+notify: true # Send notification after install/uninstall is finished (true/false)
+system:
+  repo-url: https://dl.flathub.org/repo/flathub.flatpakrepo
+  repo-name: flathub
+  repo-title: "Flathub (system-wide)"
+  install:
+    - com.github.rafostar.Clapper
+    - com.github.tchx84.Flatseal
+    - io.github.celluloid_player.Celluloid
+    - io.github.dvlv.boxbuddyrs
+    - io.github.flattool.Warehouse
+    - io.missioncenter.MissionCenter
+    - org.fedoraproject.MediaWriter
+    - org.mozilla.firefox
+    - org.mozilla.Thunderbird
+    - com.mattjakeman.ExtensionManager
+    - org.gnome.baobab
+    - org.gnome.Calculator
+    - org.gnome.Calendar
+    - org.gnome.Characters
+    - org.gnome.clocks
+    - org.gnome.Connections
+    - org.gnome.Contacts
+    - org.gnome.Evince
+    - org.gnome.font-viewer
+    - org.gnome.gThumb
+    - org.gnome.Logs
+    - org.gnome.Loupe
+    - org.gnome.Maps
+    - org.gnome.NautilusPreviewer
+    - org.gnome.Snapshot
+    - org.gnome.SoundRecorder
+    - org.gnome.TextEditor
+    - org.gnome.Weather
