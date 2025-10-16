@@ -24,7 +24,7 @@ modules:
   - from-file: common_modules/secureblue/disable-cups.yml
 
   # - from-file: common_modules/dropbox.yml
-  - from-file: common_modules/dropbox_rpm.yml
+  # - from-file: common_modules/dropbox_rpm.yml
 
   - from-file: common_modules/cleanup.yml
 
