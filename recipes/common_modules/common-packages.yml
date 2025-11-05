@@ -16,4 +16,5 @@ install:
     - zsh
     - zsh-autosuggestions
     - smartmontools
+    - util-linux-user
     # - mailcap tree-sitter-cli wl-clipboard xdg-utils xsel # neovim weak deps: 13M (+ 27M =40M )
