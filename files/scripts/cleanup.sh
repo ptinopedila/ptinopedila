@@ -1,6 +1,7 @@
 #!/usr/bin/bash
 
 set -ouex pipefail
+shopt -s nullglob # fixes sed: can't read /etc/yum.repos.d/rpmfusion-*: No such file or directory
 
 # Hide Desktop Files. Hidden removes mime associations
 icons_to_hide=(
