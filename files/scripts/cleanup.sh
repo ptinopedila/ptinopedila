@@ -1,7 +1,6 @@
 #!/usr/bin/bash
 
 set -ouex pipefail
-shopt -s nullglob # fixes sed: can't read /etc/yum.repos.d/rpmfusion-*: No such file or directory
 
 # Hide Desktop Files. Hidden removes mime associations
 icons_to_hide=(
@@ -52,7 +51,9 @@ if [ -f /etc/yum.repos.d/fedora-coreos-pool.repo ]; then
     sed -i 's@enabled=1@enabled=0@g' /etc/yum.repos.d/fedora-coreos-pool.repo
 fi
 
+shopt -s nullglob # fixes sed: can't read /etc/yum.repos.d/rpmfusion-*: No such file or directory
 rpmfusion_files=(/etc/yum.repos.d/rpmfusion-*)
+shopt -u nullglob
 if [[ ${#rpmfusion_files[@]} -eq 0 ]]; then
     echo "rpmfusion is not installed."
 else
