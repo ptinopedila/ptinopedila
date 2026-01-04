@@ -51,13 +51,17 @@ if [ -f /etc/yum.repos.d/fedora-coreos-pool.repo ]; then
     sed -i 's@enabled=1@enabled=0@g' /etc/yum.repos.d/fedora-coreos-pool.repo
 fi
 
-shopt -s nullglob # fixes sed: can't read /etc/yum.repos.d/rpmfusion-*: No such file or directory
 rpmfusion_files=(/etc/yum.repos.d/rpmfusion-*)
-shopt -u nullglob
-if [[ ${#rpmfusion_files[@]} -eq 0 ]]; then
-    echo "rpmfusion is not installed."
+
+existing=()
+for f in "${rpmfusion_files[@]}"; do
+  [[ -e "$f" ]] && existing+=("$f")
+done
+
+if [[ ${#existing[@]} -eq 0 ]]; then
+  echo "rpmfusion is not installed."
 else
-    for i in "${rpmfusion_files[@]}"; do
-        sed -i 's@enabled=1@enabled=0@g' "$i"
-    done
+  for f in "${existing[@]}"; do
+    sed -i 's@^enabled=1@enabled=0@g' "$f"
+  done
 fi
