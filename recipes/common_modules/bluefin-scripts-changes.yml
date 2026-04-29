@@ -1,5 +1,0 @@
-type: script
-scripts:
-  - bluefin-rename.sh
-  - bluefin-remove-dconf.sh
-  - enable_rpmfusion.sh
