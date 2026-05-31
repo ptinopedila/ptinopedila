@@ -7,12 +7,12 @@ configurations:
       - io.gitlab.adhami3310.Impression
       - io.github.flattool.Ignition
 
-      - com.github.rafostar.Clapper
+      - org.gnome.Showtime
       - com.github.tchx84.Flatseal
       - io.github.flattool.Warehouse
       - io.missioncenter.MissionCenter
       - org.mozilla.firefox
-      - org.mozilla.Thunderbird
+      - org.mozilla.thunderbird
       - org.gustavoperedo.FontDownloader
       - com.github.PintaProject.Pinta
       - io.github.pwr_solaar.solaar
@@ -38,6 +38,7 @@ configurations:
       - org.gnome.SimpleScan
       - org.gnome.Weather
       - page.tesk.Refine
+      - org.gnome.Firmware
 
       - io.podman_desktop.PodmanDesktop
       - io.github.getnf.embellish
