@@ -1,0 +1,11 @@
+# yaml-language-server: $schema=https://schema.blue-build.org/module-list-v1.json
+modules:
+  - type: files
+    files:
+      - source: secureblue
+        destination: /
+
+  - type: script
+    scripts:
+      - secureblue/auth-select.sh
+      - secureblue/disable-cups.sh
