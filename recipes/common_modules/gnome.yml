@@ -8,5 +8,3 @@ install:
     - gnome-shell-extension-dash-to-panel
     - gnome-shell-extension-gamemode
     - gnome-shell-extension-just-perfection
-    - simple-scan
-    - wofi

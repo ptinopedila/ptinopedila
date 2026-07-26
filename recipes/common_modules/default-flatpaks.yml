@@ -34,6 +34,7 @@ configurations:
       - org.gnome.Papers
       - org.gnome.Snapshot
       - org.gnome.SoundRecorder
+      - org.gnome.SimpleScan
       - org.gnome.TextEditor
       - org.gnome.SimpleScan
       - org.gnome.Weather
