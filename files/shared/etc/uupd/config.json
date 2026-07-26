@@ -1,0 +1,25 @@
+{
+    "checks": {
+        "hardware": {
+            "enable": true,
+            "bat-min-percent": 50,
+            "cpu-max-percent": 50,
+            "mem-max-percent": 70,
+            "net-max-bytes": 700000
+        }
+    },
+    "modules": {
+        "brew": {
+            "disable": false
+        },
+        "distrobox": {
+            "disable": false
+        },
+        "flatpak": {
+            "disable": false
+        },
+        "system": {
+            "disable": false
+        }
+    }
+}
