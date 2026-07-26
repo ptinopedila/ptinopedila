@@ -1,3 +1,5 @@
 .idea
 cosign.key
 /Containerfile
+/VESTIGIAL_FILES.md
+todo/
