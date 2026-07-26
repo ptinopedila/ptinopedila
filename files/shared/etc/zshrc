@@ -329,6 +329,3 @@ if [[ -d /home/linuxbrew/.linuxbrew && $- == *i* ]]; then
 fi
 
 [ -f /usr/bin/starship ] && eval "$(starship init zsh)"
-
-source /usr/share/zsh-autosuggestions/zsh-autosuggestions.zsh
-source /usr/share/fsh/fast-syntax-highlighting.plugin.zsh
