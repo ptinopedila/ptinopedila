@@ -7,3 +7,5 @@ install:
     - firewall-config
     - fontawesome-fonts-web
     - google-carlito-fonts
+    - dconf-editor
+    - file-roller-nautilus
