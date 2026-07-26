@@ -10,9 +10,7 @@ image-version: latest
 # list of modules, executed in order
 modules:
   - from-file: common_modules/bluefin-rename-dconf.yml
-  - from-file: common_modules/common-packages.yml
-  - from-file: common_modules/common-scripts.yml
-  - from-file: common_modules/common-files.yml
+  - from-file: common_modules/common.yml
   - from-file: common_modules/gnome.yml
   - from-file: common_modules/desktop-minimal.yml
   - from-file: common_modules/secureblue/common-files.yml

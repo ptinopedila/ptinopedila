@@ -1,4 +1,0 @@
-type: script
-scripts:
-  # this sets up the proper policy & signing files for signed images to work
-  - zsh-install.sh
