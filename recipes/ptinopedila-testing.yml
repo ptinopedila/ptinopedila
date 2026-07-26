@@ -10,9 +10,7 @@ image-version: latest
 # list of modules, executed in order
 modules:
   - from-file: common_modules/bluefin-rename-dconf.yml
-  - from-file: common_modules/common.yml
-  - from-file: common_modules/desktop-minimal.yml
+  - from-file: common_modules/workstation.yml
   - from-file: common_modules/secureblue.yml
   - from-file: common_modules/cleanup.yml
-  - from-file: common_modules/default-flatpaks.yml
   - type: signing # this sets up the proper policy & signing files for signed images to work fully

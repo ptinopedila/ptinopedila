@@ -1,0 +1,100 @@
+# yaml-language-server: $schema=https://schema.blue-build.org/module-list-v1.json
+modules:
+  # Common CLI/server layer
+  - type: dnf
+    install:
+      install-weak-deps: false
+      packages:
+        - bat
+        - fd-find
+        - hddtemp
+        - jq
+        - lm_sensors
+        - lsd
+        - neovim
+        - openssh
+        - procinfo
+        - procs # A modern replacement for ps
+        - pv # A tool for monitoring the progress of data through a pipeline.
+        - smartmontools
+        - util-linux-user
+        - zsh
+        - zsh-autosuggestions
+
+  - type: script
+    scripts:
+      - zsh-install.sh
+
+  # Shared workstation configuration
+  - type: files
+    files:
+      - source: shared
+        destination: /
+
+  # Desktop RPM layer
+  - type: dnf
+    repos:
+      cleanup: true
+      copr:
+        - quadratech188/vicinae
+    install:
+      install-weak-deps: false
+      packages:
+        - dconf-editor
+        - ddccontrol-gtk
+        - file-roller-nautilus
+        - firewall-config
+        - fontawesome-fonts-web
+        - google-carlito-fonts
+        - vicinae
+
+  # Desktop Flatpak layer
+  - type: default-flatpaks
+    configurations:
+      - scope: system
+        # notify: false
+        install:
+          # System and image management
+          - io.gitlab.adhami3310.Impression
+          - io.github.flattool.Ignition
+          - com.github.tchx84.Flatseal
+          - io.github.flattool.Warehouse
+          - io.missioncenter.MissionCenter
+          - io.github.pwr_solaar.solaar
+          - page.tesk.Refine
+          - org.gnome.Firmware
+
+          # Web, communication, media, and graphics
+          - org.gnome.Showtime
+          - org.mozilla.firefox
+          - org.mozilla.thunderbird
+          - org.gustavoperedo.FontDownloader
+          - com.github.PintaProject.Pinta
+
+          # GNOME desktop applications
+          - com.mattjakeman.ExtensionManager
+          - org.gnome.baobab
+          - org.gnome.Calculator
+          - org.gnome.Calendar
+          - org.gnome.Characters
+          - org.gnome.clocks
+          - org.gnome.Connections
+          - org.gnome.Contacts
+          - org.gnome.font-viewer
+          - org.gnome.gThumb
+          - org.gnome.Logs
+          - org.gnome.Loupe
+          - org.gnome.Maps
+          - org.gnome.NautilusPreviewer
+          - org.gnome.Papers
+          - org.gnome.SimpleScan
+          - org.gnome.Snapshot
+          - org.gnome.SoundRecorder
+          - org.gnome.TextEditor
+          - org.gnome.Weather
+
+          # Development and containers
+          - io.podman_desktop.PodmanDesktop
+          - io.github.getnf.embellish
+          - me.iepure.devtoolbox
+          - sh.loft.devpod
