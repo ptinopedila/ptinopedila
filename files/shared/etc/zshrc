@@ -80,29 +80,13 @@ _comp_options+=(globdots)
 
 
 #
-# Cursor and PS1
+# Cursor
 #
 
 # Use beam shape cursor on startup.
 echo -ne '\e[5 q'
 # Use beam shape cursor for each new prompt.
 preexec() { echo -ne '\e[5 q' ;}
-
-if [[ -f /usr/bin/starship ]]; then
-	# Use starship if available
-	eval "$(starship init zsh)"
-
-else
-	# Default PS1 if starship is not installed.
-	setopt PROMPT_SUBST
-	PS1="%B%{$fg[red]%}[%{$fg[yellow]%}%n%{$fg[green]%}@%{$fg[cyan]%}%M %{$fg[magenta]%}%c%{$fg[red]%}]%{$reset_color%}$%b "
-
-	if [ -f "$HOME/.local/bin/helpers/git-prompt.sh" ]; then
-		source $HOME/.local/bin/helpers/git-prompt.sh
-		git_prmpt=\$(__git_ps1 \"(%s) \")
-		PS1="$git_prmpt$PS1"
-	fi
-fi
 
 #
 # History
@@ -328,4 +312,30 @@ if [[ -d /home/linuxbrew/.linuxbrew && $- == *i* ]]; then
 	eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
 fi
 
-[ -f /usr/bin/starship ] && eval "$(starship init zsh)"
+#
+# PS1
+#
+
+_starship_bin=""
+_homebrew_prefix="${HOMEBREW_PREFIX:-/home/linuxbrew/.linuxbrew}"
+if [[ -x /usr/bin/starship ]]; then
+	_starship_bin=/usr/bin/starship
+elif [[ -x "$_homebrew_prefix/bin/starship" ]]; then
+	_starship_bin="$_homebrew_prefix/bin/starship"
+fi
+
+if [[ -n "$_starship_bin" ]]; then
+	# Use starship if available
+	eval "$("$_starship_bin" init zsh)"
+else
+	# Default PS1 if starship is not installed.
+	setopt PROMPT_SUBST
+	PS1="%B%{$fg[red]%}[%{$fg[yellow]%}%n%{$fg[green]%}@%{$fg[cyan]%}%M %{$fg[magenta]%}%c%{$fg[red]%}]%{$reset_color%}$%b "
+
+	if [ -f "$HOME/.local/bin/helpers/git-prompt.sh" ]; then
+		source $HOME/.local/bin/helpers/git-prompt.sh
+		git_prmpt=\$(__git_ps1 \"(%s) \")
+		PS1="$git_prmpt$PS1"
+	fi
+fi
+unset _starship_bin _homebrew_prefix
