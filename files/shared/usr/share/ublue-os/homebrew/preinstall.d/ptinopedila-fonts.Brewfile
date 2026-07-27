@@ -1,0 +1,5 @@
+cask "font-ubuntu"
+cask "font-ubuntu-mono"
+cask "font-inter"
+cask "font-intel-one-mono"
+cask "font-commit-mono"
