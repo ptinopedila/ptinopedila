@@ -23,6 +23,7 @@ modules:
   - type: script
     scripts:
       - assert-brew-preinstall.sh
+      - enable-brew-preinstall.sh
 
   # Desktop RPM layer
   - type: dnf
