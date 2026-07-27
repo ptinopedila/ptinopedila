@@ -1,10 +1,10 @@
 # image will be published to ghcr.io/<user>/<name>
-name: ptinopedila-home-nvidia-testing
+name: ptinopedila-home-testing
 # description will be included in the image's metadata
 description: "Bluefin main for economists (soon)."
 
 # the base image to build on top of (FROM) and the version tag to use
-base-image: ghcr.io/projectbluefin/bluefin-nvidia
+base-image: ghcr.io/projectbluefin/bluefin
 image-version: testing
 
 # list of modules, executed in order

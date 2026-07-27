@@ -24,8 +24,6 @@ jobs:
           # !! Add your recipes here 
           - ptinopedila-home-nvidia.yml
           - ptinopedila-home.yml
-          - ptinopedila-stable-testing.yml
-          - ptinopedila-testing.yml
     steps:
        # the build is fully handled by the reusable github action
       - name: Build Custom Image
