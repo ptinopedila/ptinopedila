@@ -1,4 +1,8 @@
+tap "projectbluefin/bluefinctl", trusted: true
+tap "ublue-os/tap", trusted: true
+
 brew "bat"
+brew "bluefinctl"
 brew "fd"
 brew "fzf"
 brew "glow"
@@ -18,3 +22,5 @@ brew "tmux"
 brew "ykman"
 brew "zsh-autosuggestions"
 brew "zsh-fast-syntax-highlighting"
+
+cask "ublue-os/tap/visual-studio-code-linux"
