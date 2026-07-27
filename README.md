@@ -16,7 +16,7 @@ Current issue is the size of the images and the limited resources github provide
 
 Smaller images intended to be used with toolboxes for a light and flexible workstation at home.
 
-Currently built on top of [bluefin-dx](https://github.com/ublue-os/bluefin).
+Currently built on top of [Bluefin](https://github.com/projectbluefin/bluefin)'s stable image.
 
 - ptinopedila-home
 - ptinopedila-home-nvidia

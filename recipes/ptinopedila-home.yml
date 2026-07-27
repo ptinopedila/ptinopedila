@@ -4,8 +4,8 @@ name: ptinopedila-home
 description: "Bluefin main for economists (soon)."
 
 # the base image to build on top of (FROM) and the version tag to use
-base-image: ghcr.io/ublue-os/bluefin-dx
-image-version: latest
+base-image: ghcr.io/projectbluefin/bluefin
+image-version: stable
 
 # list of modules, executed in order
 modules:
