@@ -58,6 +58,8 @@ modules:
           - org.gnome.Firmware
 
           # Web, communication, media, and graphics
+          - be.alexandervanhee.gradia
+          - org.gnome.Decibels
           - org.gnome.Showtime
           - org.mozilla.firefox
           - org.mozilla.thunderbird
