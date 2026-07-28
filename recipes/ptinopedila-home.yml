@@ -12,5 +12,4 @@ modules:
   - from-file: common_modules/bluefin-rename-dconf.yml
   - from-file: common_modules/workstation.yml
   - from-file: common_modules/secureblue.yml
-  - from-file: common_modules/cleanup.yml
   - type: signing # this sets up the proper policy & signing files for signed images to work fully
