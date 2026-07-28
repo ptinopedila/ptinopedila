@@ -1,8 +1,8 @@
-tap "projectbluefin/bluefinctl", trusted: true
+# tap "projectbluefin/bluefinctl", trusted: true
 tap "ublue-os/tap", trusted: true
 
 brew "bat"
-brew "bluefinctl"
+# brew "bluefinctl"
 brew "fd"
 brew "fzf"
 brew "glow"
