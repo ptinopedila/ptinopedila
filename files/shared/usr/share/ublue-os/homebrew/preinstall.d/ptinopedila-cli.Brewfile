@@ -23,4 +23,4 @@ brew "ykman"
 brew "zsh-autosuggestions"
 brew "zsh-fast-syntax-highlighting"
 
-cask "ublue-os/tap/visual-studio-code-linux"
+cask "ublue-os/tap/visual-studio-code-linux", trusted: true
