@@ -13,6 +13,11 @@ modules:
         - util-linux-user
         - zsh
 
+  # Replace Bluefin's image-managed Homebrew packages with our own set
+  - type: script
+    scripts:
+      - reset-brew-preinstall.sh
+
   # Shared workstation configuration
   - type: files
     files:
