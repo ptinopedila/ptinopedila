@@ -23,6 +23,11 @@
 # bindkey -e             # emacs key bindings
 bindkey ' ' magic-space  # also do history expansion on space
 
+# Keep colon-separated search paths idempotent when profile scripts and this
+# file both configure them. INFOPATH does not have a built-in tied Zsh array.
+typeset -gU path fpath
+typeset -gTU INFOPATH infopath
+
 # Provide pathmunge for /etc/profile.d scripts
 pathmunge()
 {
@@ -56,13 +61,24 @@ _src_etc_profile_d
 
 unset -f pathmunge _src_etc_profile_d
 
+# Configure Homebrew before compinit so its Zsh completions are discoverable.
+# Keep system binaries ahead of Homebrew binaries, matching upstream uBlue.
+_homebrew_prefix="${HOMEBREW_PREFIX:-/home/linuxbrew/.linuxbrew}"
+if [[ -x "$_homebrew_prefix/bin/brew" ]]; then
+	eval "$("$_homebrew_prefix/bin/brew" shellenv zsh | /bin/sed '\|^export PATH=|d')"
+	path=("${(@)path:#$_homebrew_prefix/bin}")
+	path=("${(@)path:#$_homebrew_prefix/sbin}")
+	path+=("$_homebrew_prefix/bin" "$_homebrew_prefix/sbin")
+	export PATH
+fi
+
 autoload -U colors && colors
 
 # Load and initialize the completion system ignoring insecure directories with a
 # cache time of 20 hours, so it should almost always regenerate the first time a
 # shell is opened each day.
 autoload -Uz compinit
-_comp_path="${XDG_CACHE_HOME:-$HOME/.cache}/prezto/zcompdump"
+_comp_path="${XDG_CACHE_HOME:-$HOME/.cache}/prezto/zcompdump-v2"
 # #q expands globs in conditional expressions
 if [[ $_comp_path(#qNmh-20) ]]; then
   # -C (skip function check) implies -i (skip security check).
@@ -307,17 +323,11 @@ if [ -f $HOME/.local/anaconda3/bin/conda ]; then
     }
 fi
 
-if [[ -d /home/linuxbrew/.linuxbrew && $- == *i* ]]; then
-	# If homebrew is installed, add it to PATH
-	eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
-fi
-
 #
 # PS1
 #
 
 _starship_bin=""
-_homebrew_prefix="${HOMEBREW_PREFIX:-/home/linuxbrew/.linuxbrew}"
 if [[ -x /usr/bin/starship ]]; then
 	_starship_bin=/usr/bin/starship
 elif [[ -x "$_homebrew_prefix/bin/starship" ]]; then
