@@ -1,69 +1,102 @@
-# Ptinopedila-os
+# Ptinopedila
 
-[![build-ublue](https://github.com/ptinopedila/ptinopedila-os/actions/workflows/build.yml/badge.svg)](https://github.com/ptinopedila/ptinopedila-os/actions/workflows/build.yml)
+[![Build images](https://github.com/ptinopedila/ptinopedila/actions/workflows/build.yml/badge.svg)](https://github.com/ptinopedila/ptinopedila/actions/workflows/build.yml)
 
-> Warning! The images in this repository are not ready to be used in production. The image names and scope may change daily as long as this message is here.
+> [!WARNING]
+> Ptinopedila is an experimental personal project, not an official Fedora,
+> Universal Blue, or Bluefin image. Keep a working rollback deployment and test
+> it in a virtual machine before relying on it.
 
-The goal is to create a set of images for economists and econ-labs.
-
-Our goal is to deliver a versatile and streamlined environment, minimizing barriers to academic work for economists and data scientists.
-
-Current issue is the size of the images and the limited resources github provides for free.
+The project provides a streamlined workstation for economists and data
+scientists, with an emphasis on reproducible academic workflows.
 
 ## Images
 
 ### Home
 
-Smaller images intended to be used with toolboxes for a light and flexible workstation at home.
+Both published images follow [Bluefin](https://projectbluefin.io/)'s `stable`
+stream:
 
-Currently built on top of [Bluefin](https://github.com/projectbluefin/bluefin)'s stable image.
-
-- ptinopedila-home
-- ptinopedila-home-nvidia
+| Image | Intended hardware |
+|---|---|
+| `ptinopedila-home` | Systems using the standard Bluefin image |
+| `ptinopedila-home-nvidia` | Systems requiring Bluefin's NVIDIA image |
 
 ## Documentation
 
-This project is based on [Universal Blue](universal-blue.org) and [Bluefin](https://projectbluefin.io/). We will try to stay close to upstream, which is constantly improving and evolving. The changes we make will be documented in detail.
+This project is based on [Universal Blue](https://universal-blue.org/) and
+[Bluefin](https://projectbluefin.io/). It aims to remain close to upstream
+while documenting Ptinopedila-specific changes.
 
-For econ-specific tools and programs please open an issue in this repository. Documentation on how to install proprietary software and work with containers will soon™ be available.
+For economics-specific tools and programs, open an issue in this repository.
 
-For more info, check out the [uBlue homepage](https://universal-blue.org/) and the [main uBlue repo](https://github.com/ublue-os/main/)
+For upstream concepts and administration, see the
+[Universal Blue website](https://universal-blue.org/) and
+[Bluefin documentation](https://docs.projectbluefin.io/).
 
 ## Installation
 
-> **Warning**
-> [This is an experimental feature](https://www.fedoraproject.org/wiki/Changes/OstreeNativeContainerStable) and should not be used in production, try it in a VM for a while!
+The following example switches an existing Fedora Atomic Desktop or Bluefin
+installation to the standard Ptinopedila image. For an NVIDIA system, replace
+`ptinopedila-home` with `ptinopedila-home-nvidia` in both commands.
 
-To rebase an existing Silverblue/Kinoite installation to the latest build:
-
-- First rebase to the unsigned image, to get the proper signing keys and policies installed:
-
-  ```sh
-  rpm-ostree rebase ostree-unverified-registry:ghcr.io/ptinopedila/ptinopedila-home:latest
-  ```
-
-- Reboot to complete the rebase:
-
-  ```sh
-  systemctl reboot
-  ```
-
-- Then rebase to the signed image, like so:
-
-  ```sh
-  rpm-ostree rebase ostree-image-signed:docker://ghcr.io/ptinopedila/ptinopedila-home:latest
-  ```
-
-- Reboot again to complete the installation
-
-  ```sh
-  systemctl reboot
-  ```
-
-This repository builds date tags as well, so if you want to rebase to a particular day's build:
+The first switch cannot yet enforce Ptinopedila's signing policy because the
+public key and policy are delivered by the image itself:
 
 ```sh
-rpm-ostree rebase ostree-image-signed:docker://ghcr.io/ptinopedila/ptinopedila-home:20230403
+sudo bootc switch ghcr.io/ptinopedila/ptinopedila-home:latest
+sudo systemctl reboot
+```
+
+After booting Ptinopedila, stage the same image again with signature
+verification enforced, then reboot:
+
+```sh
+sudo bootc switch \
+    ghcr.io/ptinopedila/ptinopedila-home:latest \
+    --enforce-container-sigpolicy
+sudo systemctl reboot
+```
+
+Both published images are signed with the key in `cosign.pub`.
+
+<details>
+<summary>rpm-ostree compatibility commands</summary>
+
+BlueBuild also documents the older `rpm-ostree` syntax for systems where
+`bootc switch` is not available:
+
+```sh
+sudo rpm-ostree rebase \
+    ostree-unverified-registry:ghcr.io/ptinopedila/ptinopedila-home:latest
+sudo systemctl reboot
+```
+
+After booting the image:
+
+```sh
+sudo rpm-ostree rebase \
+    ostree-image-signed:docker://ghcr.io/ptinopedila/ptinopedila-home:latest
+sudo systemctl reboot
+```
+
+</details>
+
+### Image tags
+
+- `latest` points to the newest successful Ptinopedila build.
+- A Fedora-major tag such as `44` follows Ptinopedila builds for that Fedora
+  release without crossing into the next major release.
+- Date tags such as `20260811` and `20260811-44` select a particular build.
+- An image digest provides the strongest immutable pin.
+
+The recipes consume Bluefin's moving `stable` stream. Consequently,
+Ptinopedila's `latest` tag can move to a new Fedora major release when Bluefin
+promotes it to `stable`; `latest` is not a Fedora-major pin. Available tags can
+be inspected with:
+
+```sh
+skopeo list-tags docker://ghcr.io/ptinopedila/ptinopedila-home
 ```
 
 ### Install dotfiles
@@ -142,7 +175,3 @@ Each new terminal starts in the unloaded state, so shells that never invoke
 `conda` remain unaffected.
 
 </details>
-
-This repository by default also supports signing.
-
-The `latest` tag will automatically point to the latest build. That build will still always use the Fedora version specified in `recipe.yml`, so you won't get accidentally updated to the next major version.
