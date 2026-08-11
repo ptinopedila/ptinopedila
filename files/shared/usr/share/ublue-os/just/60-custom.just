@@ -50,6 +50,20 @@ install-dotfiles source second="" third="":
     fi
     exec "${INSTALLER}" "${SOURCE}"
 
+# Install Miniconda (default) or Anaconda without modifying shell startup files.
+[group('Setup')]
+install-conda distribution="miniconda":
+    #!/usr/bin/env bash
+    set -euo pipefail
+
+    # Usage:
+    #   ujust install-conda          # Install Miniconda (default)
+    #   ujust install-conda anaconda # Install the Anaconda distribution
+    DISTRIBUTION={{ quote(distribution) }}
+    INSTALLER="${PTINOPEDILA_CONDA_INSTALLER:-/usr/libexec/ptinopedila/install-conda}"
+
+    exec "${INSTALLER}" --distribution "${DISTRIBUTION}"
+
 # Configure the current project to build LaTeX documents with latexmk.
 [group('Development')]
 configure-latex aux_dir="build-latex" pdf_dir=".":
