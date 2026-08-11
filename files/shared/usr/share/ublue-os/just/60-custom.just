@@ -156,3 +156,11 @@ enable-cups:
     systemctl unmask cups
     systemctl enable cups
     systemctl start cups
+
+# Disable CUPS and reverse the firewall changes made by `ujust enable-cups`.
+[confirm("Disable CUPS and remove its firewall rules?")]
+disable-cups:
+    sudo systemctl disable --now cups.service
+    sudo firewall-cmd --permanent --remove-port=631/tcp
+    sudo firewall-cmd --permanent --remove-port=631/udp
+    sudo firewall-cmd --reload
