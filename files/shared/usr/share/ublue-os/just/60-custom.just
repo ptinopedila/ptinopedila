@@ -25,6 +25,31 @@ install-ptinopedila-brew:
     echo "Ptinopedila Homebrew bundle installed."
     echo "Open a new terminal if newly installed commands are not yet on PATH."
 
+# Install a bare dotfiles repository into the current user's home directory.
+[group('Setup')]
+install-dotfiles source second="" third="":
+    #!/usr/bin/env bash
+    set -euo pipefail
+
+    SOURCE={{ quote(source) }}
+    SECOND={{ quote(second) }}
+    THIRD={{ quote(third) }}
+    INSTALLER="${PTINOPEDILA_DOTFILES_INSTALLER:-/usr/libexec/ptinopedila/install-dotfiles}"
+
+    if [[ "${SOURCE}" == "--github" ]]; then
+        if [[ -z "${SECOND}" || -z "${THIRD}" ]]; then
+            echo "Usage: ujust install-dotfiles --github <username> <repository>" >&2
+            exit 1
+        fi
+        exec "${INSTALLER}" "${SOURCE}" "${SECOND}" "${THIRD}"
+    fi
+
+    if [[ -n "${SECOND}" || -n "${THIRD}" ]]; then
+        echo "Usage: ujust install-dotfiles <repository-url>" >&2
+        exit 1
+    fi
+    exec "${INSTALLER}" "${SOURCE}"
+
 # Configure the current project to build LaTeX documents with latexmk.
 [group('Development')]
 configure-latex aux_dir="build-latex" pdf_dir=".":
