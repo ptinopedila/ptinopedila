@@ -13,10 +13,11 @@ modules:
         - util-linux-user
         - zsh
 
-  # Replace Bluefin's image-managed Homebrew packages with our own set
+  # Reset inherited Bluefin configuration that is incompatible with this image
   - type: script
     scripts:
       - reset-brew-preinstall.sh
+      - remove-inherited-ujust-recipes.sh
 
   # Shared workstation configuration
   - type: files

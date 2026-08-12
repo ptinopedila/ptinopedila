@@ -44,6 +44,7 @@ jobs:
           tests/install-dotfiles.sh
           tests/install-conda.sh
           tests/configure-latex.sh
+          tests/remove-inherited-ujust-recipes.sh
 
   bluebuild:
     name: Build Custom Image
