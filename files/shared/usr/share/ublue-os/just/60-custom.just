@@ -158,7 +158,11 @@ configure-latex aux_dir="build-latex" pdf_dir=".":
     awk -v begin="${gitignore_begin}" -v end="${gitignore_end}" '
         $0 == begin { managed = 1; next }
         $0 == end { managed = 0; next }
-        !managed { print }
+        !managed { lines[++count] = $0 }
+        END {
+            while (count > 0 && lines[count] == "") count--
+            for (line = 1; line <= count; line++) print lines[line]
+        }
     ' .gitignore > "${gitignore_tmp}"
     printf '\n%s\n/%s/\n%s\n' \
         "${gitignore_begin}" "${AUX_DIR}" "${gitignore_end}" >> "${gitignore_tmp}"
@@ -172,7 +176,11 @@ configure-latex aux_dir="build-latex" pdf_dir=".":
     awk -v begin="${latexmk_begin}" -v end="${latexmk_end}" '
         $0 == begin { managed = 1; next }
         $0 == end { managed = 0; next }
-        !managed { print }
+        !managed { lines[++count] = $0 }
+        END {
+            while (count > 0 && lines[count] == "") count--
+            for (line = 1; line <= count; line++) print lines[line]
+        }
     ' .latexmkrc > "${latexmk_tmp}"
     printf '\n%s\n' "${latexmk_begin}" >> "${latexmk_tmp}"
     printf '%s\n' \
@@ -194,13 +202,15 @@ enable-cups:
     sudo firewall-cmd --permanent --add-port=631/tcp
     sudo firewall-cmd --permanent --add-port=631/udp
     sudo firewall-cmd --reload
-    sudo systemctl unmask cups.service
-    sudo systemctl enable --now cups.service
+    sudo systemctl unmask cups.service cups.socket
+    sudo systemctl enable --now cups.service cups.socket
+    echo "CUPS enabled. Automatic network-printer discovery remains disabled."
 
 # Disable CUPS and reverse the firewall changes made by `ujust enable-cups`.
 [confirm("Disable CUPS and remove its firewall rules?")]
 disable-cups:
-    sudo systemctl disable --now cups.service
+    sudo systemctl disable --now cups.service cups.socket
+    sudo systemctl mask --now cups.service cups.socket cups-browsed.service
     sudo firewall-cmd --permanent --remove-port=631/tcp
     sudo firewall-cmd --permanent --remove-port=631/udp
     sudo firewall-cmd --reload

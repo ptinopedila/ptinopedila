@@ -1,8 +1,18 @@
 #!/usr/bin/env bash
 
-# Tell build process to exit if there are any errors.
-set -oue pipefail
+# SPDX-FileCopyrightText: Copyright 2025-2026 The Secureblue Authors
+#
+# SPDX-License-Identifier: Apache-2.0
 
-echo "Disabling the print service"
-systemctl disable cups
-systemctl mask cups
+set -euo pipefail
+
+echo "Disabling print services"
+
+systemctl disable cups.socket
+systemctl mask cups.socket
+
+systemctl disable cups.service
+systemctl mask cups.service
+
+systemctl disable cups-browsed.service
+systemctl mask cups-browsed.service

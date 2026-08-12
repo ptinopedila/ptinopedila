@@ -1,7 +1,10 @@
 #!/usr/bin/env bash
 
-# Tell build process to exit if there are any errors.
-set -oue pipefail
+# SPDX-FileCopyrightText: Copyright 2025-2026 The Secureblue Authors
+#
+# SPDX-License-Identifier: Apache-2.0
+
+set -euo pipefail
 
 echo "Enabling faillock in PAM authentication profile"
 

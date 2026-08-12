@@ -27,6 +27,7 @@ modules:
   # Verify the inherited Bluefin Homebrew installer is still available
   - type: script
     scripts:
+      - validate-zsh.sh
       - assert-brew-preinstall.sh
       - enable-brew-preinstall.sh
 

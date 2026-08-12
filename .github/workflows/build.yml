@@ -8,6 +8,8 @@ on:
       - "**.md"
 
   pull_request:
+    paths-ignore:
+      - "**.md"
   workflow_dispatch: # allow manually triggering builds
 
 concurrency:
@@ -29,13 +31,18 @@ jobs:
         uses: extractions/setup-just@v3
 
       - name: Check shell syntax
-        run: bash -n files/scripts/*.sh files/scripts/secureblue/*.sh files/shared/usr/libexec/ptinopedila/*
+        run: bash -n files/scripts/*.sh files/scripts/secureblue/*.sh files/shared/usr/libexec/ptinopedila/* tests/*.sh
 
       - name: Check just formatting
         run: just --fmt --check --unstable --justfile files/shared/usr/share/ublue-os/just/60-custom.just
 
-      - name: Check whitespace
-        run: git diff --check "$(git hash-object -t tree /dev/null)" HEAD
+      - name: Check text files
+        run: tests/check-text-files.sh
+
+      - name: Test custom helpers
+        run: |
+          tests/install-dotfiles.sh
+          tests/configure-latex.sh
 
   bluebuild:
     name: Build Custom Image
