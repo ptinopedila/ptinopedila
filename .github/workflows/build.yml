@@ -42,6 +42,7 @@ jobs:
       - name: Test custom helpers
         run: |
           tests/install-dotfiles.sh
+          tests/install-conda.sh
           tests/configure-latex.sh
 
   bluebuild:

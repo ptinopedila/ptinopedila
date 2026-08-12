@@ -4,3 +4,4 @@ cosign.key
 /VESTIGIAL_FILES.md
 todo/
 docs_draft/
+/.bluebuild-scripts_*
