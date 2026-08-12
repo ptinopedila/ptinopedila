@@ -188,13 +188,14 @@ configure-latex aux_dir="build-latex" pdf_dir=".":
 
     echo "LaTeX project configured: auxiliary files -> ${AUX_DIR}/, PDFs -> ${PDF_DIR}"
 
+# Enable CUPS and open the IPP ports in the persistent firewall configuration.
+[confirm("Enable CUPS and open its firewall ports?")]
 enable-cups:
-    firewall-cmd --permanent --add-port=631/tcp
-    firewall-cmd --permanent --add-port=631/udp 
-    firewall-cmd --reload 
-    systemctl unmask cups
-    systemctl enable cups
-    systemctl start cups
+    sudo firewall-cmd --permanent --add-port=631/tcp
+    sudo firewall-cmd --permanent --add-port=631/udp
+    sudo firewall-cmd --reload
+    sudo systemctl unmask cups.service
+    sudo systemctl enable --now cups.service
 
 # Disable CUPS and reverse the firewall changes made by `ujust enable-cups`.
 [confirm("Disable CUPS and remove its firewall rules?")]

@@ -1,7 +1,7 @@
 # image will be published to ghcr.io/<user>/<name>
 name: ptinopedila-home
 # description will be included in the image's metadata
-description: "Bluefin main for economists (soon)."
+description: "A Bluefin-based workstation for economists and data scientists."
 
 # the base image to build on top of (FROM) and the version tag to use
 base-image: ghcr.io/projectbluefin/bluefin

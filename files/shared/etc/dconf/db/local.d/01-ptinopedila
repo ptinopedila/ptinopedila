@@ -1,4 +1,4 @@
-[org/gnome/shell] 
+[org/gnome/shell]
 favorite-apps = ['chromium-browser.desktop', 'org.mozilla.firefox.desktop', 'org.mozilla.Thunderbird.desktop', 'org.gnome.Nautilus.desktop', 'org.gnome.Rhythmbox3.desktop', 'org.libreoffice.LibreOffice.writer.desktop', 'org.gnome.Software.desktop', 'code.desktop', 'org.gnome.Prompt.desktop', 'ubuntu.desktop', 'yelp.desktop']
 enabled-extensions=['blur-my-shell@aunetx', 'gsconnect@andyholmes.github.io', 'user-theme@gnome-shell-extensions.gcampax.github.com', 'caffeine@patapon.info', 'just-perfection-desktop@just-perfection', 'appindicatorsupport@rgcjonas.gmail.com']
 

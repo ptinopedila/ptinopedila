@@ -2,17 +2,46 @@ name: bluebuild
 on:
   schedule:
     - cron: "00 8 * * sun" # 08:00 UTC every Sunday (4 hours after last bluefin images start building)
-                          
+
   push:
     paths-ignore: # don't rebuild if only documentation has changed
       - "**.md"
-      
+
   pull_request:
   workflow_dispatch: # allow manually triggering builds
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
+  checks:
+    name: Repository checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Install just
+        uses: extractions/setup-just@v3
+
+      - name: Check shell syntax
+        run: bash -n files/scripts/*.sh files/scripts/secureblue/*.sh files/shared/usr/libexec/ptinopedila/*
+
+      - name: Check just formatting
+        run: just --fmt --check --unstable --justfile files/shared/usr/share/ublue-os/just/60-custom.just
+
+      - name: Check whitespace
+        run: git diff --check "$(git hash-object -t tree /dev/null)" HEAD
+
   bluebuild:
     name: Build Custom Image
+    needs: checks
     runs-on: ubuntu-latest
+    timeout-minutes: 180
     permissions:
       contents: read
       packages: write
@@ -21,11 +50,11 @@ jobs:
       fail-fast: false # stop GH from cancelling all matrix builds if one fails
       matrix:
         recipe:
-          # !! Add your recipes here 
+          # !! Add your recipes here
           - ptinopedila-home-nvidia.yml
           - ptinopedila-home.yml
     steps:
-       # the build is fully handled by the reusable github action
+      # the build is fully handled by the reusable github action
       - name: Build Custom Image
         uses: blue-build/github-action@v1.12
         with:
