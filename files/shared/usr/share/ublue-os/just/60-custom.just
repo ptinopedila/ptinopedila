@@ -66,6 +66,7 @@ install-conda distribution="miniconda":
 
 # Configure the current project to build LaTeX documents with latexmk.
 [group('Development')]
+[no-cd]
 configure-latex aux_dir="build-latex" pdf_dir=".":
     #!/usr/bin/env bash
     set -euo pipefail

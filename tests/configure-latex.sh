@@ -15,8 +15,11 @@ printf '/existing-entry\n' > "$project_directory/.gitignore"
 printf '\$pdf_mode = 1;\n' > "$project_directory/.latexmkrc"
 
 run_configurator() {
-  XDG_RUNTIME_DIR="$runtime_directory" just --unstable --justfile "$justfile" \
-    --working-directory "$project_directory" configure-latex
+  (
+    cd "$project_directory"
+    XDG_RUNTIME_DIR="$runtime_directory" just --unstable --justfile "$justfile" \
+      configure-latex
+  )
 }
 
 run_configurator
@@ -42,9 +45,11 @@ second_checksum=$(sha256sum \
   "$project_directory/.latexmkrc")
 [[ $first_checksum == "$second_checksum" ]]
 
-if XDG_RUNTIME_DIR="$runtime_directory" just --unstable --justfile "$justfile" \
-  --working-directory "$project_directory" configure-latex ../outside \
-  >/dev/null 2>&1; then
+if (
+  cd "$project_directory"
+  XDG_RUNTIME_DIR="$runtime_directory" just --unstable --justfile "$justfile" \
+    configure-latex ../outside >/dev/null 2>&1
+); then
   echo "Configurator unexpectedly accepted a parent-directory path." >&2
   exit 1
 fi
