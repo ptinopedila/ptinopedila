@@ -1,0 +1,197 @@
+#!/usr/bin/env bash
+
+set -Eeuo pipefail
+
+usage() {
+    cat <<EOF
+Usage: ${0##*/} [--aux-dir PATH] [--pdf-dir PATH]
+
+Configure the current project to build LaTeX documents with latexmk.
+
+Options:
+  -a, --aux-dir PATH  Auxiliary-file directory (default: build-latex)
+  -p, --pdf-dir PATH  Final PDF directory (default: project root)
+  -h, --help          Show this help
+EOF
+}
+
+aux_dir="build-latex"
+pdf_dir="."
+
+while (( $# > 0 )); do
+    case "$1" in
+        -a|--aux-dir)
+            if (( $# < 2 )); then
+                echo "Missing value for $1." >&2
+                usage >&2
+                exit 2
+            fi
+            aux_dir=$2
+            shift 2
+            ;;
+        --aux-dir=*)
+            aux_dir=${1#*=}
+            shift
+            ;;
+        -p|--pdf-dir)
+            if (( $# < 2 )); then
+                echo "Missing value for $1." >&2
+                usage >&2
+                exit 2
+            fi
+            pdf_dir=$2
+            shift 2
+            ;;
+        --pdf-dir=*)
+            pdf_dir=${1#*=}
+            shift
+            ;;
+        -h|--help)
+            usage
+            exit 0
+            ;;
+        *)
+            echo "Unknown argument: $1" >&2
+            usage >&2
+            exit 2
+            ;;
+    esac
+done
+
+preserve_mode() {
+    local destination=$1
+    local replacement=$2
+    if [[ -f $destination ]]; then
+        chmod --reference="$destination" "$replacement"
+    else
+        chmod 0644 "$replacement"
+    fi
+}
+
+for dir in "$aux_dir" "$pdf_dir"; do
+    if [[ -z $dir || $dir = /* || ! $dir =~ ^[A-Za-z0-9._/-]+$ || "/$dir/" = *"/../"* ]]; then
+        echo "LaTeX output directories must be safe, relative project paths: $dir" >&2
+        exit 1
+    fi
+done
+if [[ $aux_dir = "." ]]; then
+    echo "AUX_DIR must not be the project root." >&2
+    exit 1
+fi
+
+if command -v brew >/dev/null 2>&1; then
+    brew_command=$(command -v brew)
+elif [[ -x /var/home/linuxbrew/.linuxbrew/bin/brew ]]; then
+    brew_command="/var/home/linuxbrew/.linuxbrew/bin/brew"
+else
+    echo "Homebrew is required to install the LaTeX toolchain." >&2
+    exit 1
+fi
+
+latex_formulae=(biber latexdiff latexindent pandoc texlive)
+missing_formulae=()
+for formula in "${latex_formulae[@]}"; do
+    if ! "$brew_command" list --formula "$formula" >/dev/null 2>&1; then
+        missing_formulae+=("$formula")
+    fi
+done
+if (( ${#missing_formulae[@]} > 0 )); then
+    "$brew_command" install "${missing_formulae[@]}"
+fi
+
+if ! command -v jq >/dev/null 2>&1; then
+    echo "jq is required to merge .vscode/settings.json safely." >&2
+    exit 1
+fi
+
+aux_dir=${aux_dir%/}
+pdf_dir=${pdf_dir%/}
+[[ -n $pdf_dir ]] || pdf_dir="."
+
+mkdir -p .vscode
+settings_tmp=$(mktemp .vscode/settings.json.XXXXXX)
+if [[ -f .vscode/settings.json ]]; then
+    settings_input=".vscode/settings.json"
+else
+    settings_input="${settings_tmp}.new"
+    printf '{}\n' > "$settings_input"
+fi
+
+if ! jq --indent 2 \
+    --arg out_dir "%DIR%/$aux_dir" \
+    --arg tool_name "latexmk-project-config" \
+    '
+    .["latex-workshop.latex.outDir"] = $out_dir
+    | .["latex-workshop.latex.tools"] = (
+        [{
+            "name": $tool_name,
+            "command": "latexmk",
+            "args": [
+                "-pdf",
+                "-synctex=1",
+                "-interaction=nonstopmode",
+                "-file-line-error",
+                "%DOC%"
+            ]
+        }]
+        + ((.["latex-workshop.latex.tools"] // []) | map(select(.name != $tool_name)))
+    )
+    | .["latex-workshop.latex.recipes"] = (
+        [{"name": "latexmk (project config)", "tools": [$tool_name]}]
+        + ((.["latex-workshop.latex.recipes"] // [])
+            | map(select(.name != "latexmk (project config)")))
+    )
+    | .["latex-workshop.latex.recipe.default"] = "first"
+    ' "$settings_input" > "$settings_tmp"; then
+    rm -f "$settings_tmp" "${settings_tmp}.new"
+    echo ".vscode/settings.json must contain valid JSON before it can be merged." >&2
+    exit 1
+fi
+preserve_mode .vscode/settings.json "$settings_tmp"
+mv "$settings_tmp" .vscode/settings.json
+rm -f "${settings_tmp}.new"
+
+gitignore_begin="# >>> ptinopedila latex build >>>"
+gitignore_end="# <<< ptinopedila latex build <<<"
+gitignore_tmp=$(mktemp .gitignore.XXXXXX)
+[[ -f .gitignore ]] || : > .gitignore
+awk -v begin="$gitignore_begin" -v end="$gitignore_end" '
+    $0 == begin { managed = 1; next }
+    $0 == end { managed = 0; next }
+    !managed { lines[++count] = $0 }
+    END {
+        while (count > 0 && lines[count] == "") count--
+        for (line = 1; line <= count; line++) print lines[line]
+    }
+' .gitignore > "$gitignore_tmp"
+printf '\n%s\n/%s/\n%s\n' \
+    "$gitignore_begin" "$aux_dir" "$gitignore_end" >> "$gitignore_tmp"
+preserve_mode .gitignore "$gitignore_tmp"
+mv "$gitignore_tmp" .gitignore
+
+latexmk_begin="# >>> ptinopedila latex build >>>"
+latexmk_end="# <<< ptinopedila latex build <<<"
+latexmk_tmp=$(mktemp .latexmkrc.XXXXXX)
+[[ -f .latexmkrc ]] || : > .latexmkrc
+awk -v begin="$latexmk_begin" -v end="$latexmk_end" '
+    $0 == begin { managed = 1; next }
+    $0 == end { managed = 0; next }
+    !managed { lines[++count] = $0 }
+    END {
+        while (count > 0 && lines[count] == "") count--
+        for (line = 1; line <= count; line++) print lines[line]
+    }
+' .latexmkrc > "$latexmk_tmp"
+printf '\n%s\n' "$latexmk_begin" >> "$latexmk_tmp"
+printf '%s\n' \
+    '# Keep auxiliary files and the intermediate PDF together.' \
+    "\$aux_dir = '$aux_dir';" \
+    "\$out_dir = '$aux_dir';" \
+    '# Copy only the final PDF to the separately configured destination.' \
+    "\$out2_dir = '$pdf_dir';" \
+    "@out2_exts = ('pdf');" \
+    "$latexmk_end" >> "$latexmk_tmp"
+preserve_mode .latexmkrc "$latexmk_tmp"
+mv "$latexmk_tmp" .latexmkrc
+
+echo "LaTeX project configured: auxiliary files -> $aux_dir/, PDFs -> $pdf_dir"
