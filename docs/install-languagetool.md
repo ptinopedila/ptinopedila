@@ -163,3 +163,11 @@ To return to Eloquent, first stop the Homebrew service, then re-enable
 Eloquent's autostart entry and open the app. If you installed a custom-port
 service, disable it with the command above instead. Keep only the server you
 intend to use active.
+
+## References
+
+LanguageTool documents the model layout, supported languages, and test
+sentences in
+[Finding errors using n-gram data](https://dev.languagetool.org/finding-errors-using-n-gram-data.html).
+Other official archives are available from the
+[n-gram download directory](https://languagetool.org/download/ngram-data/).
