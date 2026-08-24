@@ -64,6 +64,27 @@ install-conda distribution="miniconda":
 
     exec "${INSTALLER}" --distribution "${DISTRIBUTION}"
 
+# Install a local LanguageTool server with the shared English n-gram model.
+[arg('no_service', long='no-service', value='true')]
+[arg('port', long='port')]
+[group('Setup')]
+[positional-arguments]
+install-languagetool no_service="false" port="":
+    #!/usr/bin/env bash
+    set -euo pipefail
+
+    INSTALLER="${PTINOPEDILA_LANGUAGETOOL_INSTALLER:-/usr/libexec/ptinopedila/install-languagetool}"
+    ARGS=()
+
+    if [[ $1 == "true" ]]; then
+        ARGS+=(--no-service)
+    fi
+    if [[ -n $2 ]]; then
+        ARGS+=("--port=$2")
+    fi
+
+    exec "${INSTALLER}" "${ARGS[@]}"
+
 # Configure the current project to build LaTeX documents with latexmk.
 [group('Development')]
 [no-cd]

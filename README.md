@@ -40,6 +40,7 @@ Ptinopedila-specific guides:
 - [Install dotfiles](docs/install-dotfiles.md)
 - [Install Conda](docs/install-conda.md)
 - [Install Julia](docs/install-julia.md)
+- [Install LanguageTool](docs/install-languagetool.md)
 
 ## Installation
 

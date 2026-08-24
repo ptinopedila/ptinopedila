@@ -1,0 +1,342 @@
+#!/usr/bin/env bash
+
+set -Eeuo pipefail
+
+readonly ngram_archive_name="ngrams-en-20150817.zip"
+readonly ngram_url="https://languagetool.org/download/ngram-data/${ngram_archive_name}"
+readonly default_port=8081
+readonly systemd_service_name="ptinopedila-languagetool.service"
+
+service_mode="homebrew"
+server_port=$default_port
+custom_port_requested=false
+no_service_requested=false
+
+usage() {
+    cat <<EOF
+Usage: ${0##*/} [--no-service | --port=PORT]
+
+  --no-service  Install and configure LanguageTool without starting a service.
+  --port=PORT   Run LanguageTool on PORT with a dedicated systemd user service.
+  -h, --help    Show this help.
+EOF
+}
+
+while (( $# > 0 )); do
+    case "$1" in
+        --no-service)
+            no_service_requested=true
+            ;;
+        --port=*)
+            server_port=${1#--port=}
+            custom_port_requested=true
+            ;;
+        --port)
+            if (( $# < 2 )); then
+                echo "--port requires a value." >&2
+                exit 2
+            fi
+            server_port=$2
+            custom_port_requested=true
+            shift
+            ;;
+        -h | --help)
+            usage
+            exit 0
+            ;;
+        *)
+            echo "Unknown option: $1" >&2
+            usage >&2
+            exit 2
+            ;;
+    esac
+    shift
+done
+
+if [[ $no_service_requested == true && $custom_port_requested == true ]]; then
+    echo "--no-service and --port cannot be used together." >&2
+    exit 2
+fi
+
+if [[ $custom_port_requested == true ]]; then
+    if [[ ! $server_port =~ ^[0-9]{1,5}$ ]] ||
+        (( 10#$server_port < 1 || 10#$server_port > 65535 )); then
+        echo "Invalid port: $server_port (expected 1-65535)." >&2
+        exit 2
+    fi
+    server_port=$((10#$server_port))
+    service_mode="systemd"
+elif [[ $no_service_requested == true ]]; then
+    service_mode="none"
+fi
+
+if [[ -n ${PTINOPEDILA_BREW_COMMAND:-} ]]; then
+    brew_command=$PTINOPEDILA_BREW_COMMAND
+elif command -v brew >/dev/null 2>&1; then
+    brew_command=$(command -v brew)
+elif [[ -x /home/linuxbrew/.linuxbrew/bin/brew ]]; then
+    brew_command="/home/linuxbrew/.linuxbrew/bin/brew"
+elif [[ -x /var/home/linuxbrew/.linuxbrew/bin/brew ]]; then
+    brew_command="/var/home/linuxbrew/.linuxbrew/bin/brew"
+else
+    echo "Homebrew is required to install LanguageTool." >&2
+    exit 1
+fi
+
+if [[ ! -x $brew_command ]]; then
+    echo "Homebrew command is not executable: $brew_command" >&2
+    exit 1
+fi
+
+for required_command in chmod curl find mkdir mktemp mv rm sed sleep ss systemctl unzip; do
+    if ! command -v "$required_command" >/dev/null 2>&1; then
+        echo "Required command not found: $required_command" >&2
+        exit 1
+    fi
+done
+
+port_is_in_use() {
+    local port=$1
+    local listeners
+
+    listeners=$(ss -H -ltn "sport = :$port")
+    [[ -n $listeners ]]
+}
+
+if [[ $service_mode != "none" ]] && port_is_in_use "$server_port"; then
+    echo "Port $server_port is already in use:" >&2
+    ss -H -ltnp "sport = :$server_port" >&2 || true
+    cat >&2 <<EOF
+
+No changes were made. Either install without starting a service:
+  ujust install-languagetool --no-service
+
+After the conflicting service is disabled, start LanguageTool with:
+  brew services start languagetool
+
+Or install a dedicated user service on another port, for example:
+  ujust install-languagetool --port=8082
+EOF
+    exit 1
+fi
+
+if "$brew_command" list --formula languagetool >/dev/null 2>&1; then
+    echo "LanguageTool is already installed with Homebrew."
+else
+    echo "Installing LanguageTool and its Java dependency with Homebrew..."
+    "$brew_command" install languagetool
+fi
+
+brew_prefix=$("$brew_command" --prefix)
+if [[ $brew_prefix != /* || ! -d $brew_prefix ]]; then
+    echo "Homebrew returned an invalid prefix: $brew_prefix" >&2
+    exit 1
+fi
+
+ngram_root="$brew_prefix/var/lib/languagetool/ngrams"
+english_model_dir="$ngram_root/en"
+
+model_is_complete() {
+    [[ -d $english_model_dir/1grams &&
+       -d $english_model_dir/2grams &&
+       -d $english_model_dir/3grams ]]
+}
+
+staging_dir=""
+cleanup() {
+    if [[ -n $staging_dir && -d $staging_dir ]]; then
+        rm -rf -- "$staging_dir"
+    fi
+}
+trap cleanup EXIT
+
+mkdir -p -- "$ngram_root"
+while IFS= read -r -d '' stale_staging_dir; do
+    echo "Removing stale LanguageTool staging directory: $stale_staging_dir"
+    rm -rf -- "$stale_staging_dir"
+done < <(find "$ngram_root" -mindepth 1 -maxdepth 1 -type d -name '.install.*' -print0)
+
+if model_is_complete; then
+    echo "English n-gram data is already installed at $english_model_dir."
+else
+    if [[ -e $english_model_dir || -L $english_model_dir ]]; then
+        echo "Refusing to overwrite an incomplete English model directory:" >&2
+        echo "  $english_model_dir" >&2
+        echo "Move it aside or complete it manually, then run this recipe again." >&2
+        exit 1
+    fi
+
+    staging_dir=$(mktemp -d "$ngram_root/.install.XXXXXXXX")
+    archive_path="$staging_dir/$ngram_archive_name"
+    extract_dir="$staging_dir/extracted"
+    mkdir -p -- "$extract_dir"
+
+    echo "Downloading the approximately 8 GB English n-gram archive..."
+    curl \
+        --fail \
+        --location \
+        --proto '=https' \
+        --retry 3 \
+        --retry-delay 2 \
+        --show-error \
+        --output "$archive_path" \
+        "$ngram_url"
+
+    echo "Extracting the English n-gram data..."
+    unzip -q "$archive_path" -d "$extract_dir"
+
+    model_source=""
+    while IFS= read -r -d '' onegram_dir; do
+        candidate=${onegram_dir%/1grams}
+        if [[ -d $candidate/2grams && -d $candidate/3grams ]]; then
+            if [[ -n $model_source ]]; then
+                echo "The archive contains more than one possible n-gram model." >&2
+                exit 1
+            fi
+            model_source=$candidate
+        fi
+    done < <(find "$extract_dir" -type d -name 1grams -print0)
+
+    if [[ -z $model_source ]]; then
+        echo "The archive did not contain the expected 1grams/2grams/3grams layout." >&2
+        exit 1
+    fi
+
+    mv -- "$model_source" "$english_model_dir"
+    chmod -R a+rX "$english_model_dir"
+    echo "Installed English n-gram data at $english_model_dir."
+fi
+
+config_dir="$brew_prefix/etc/languagetool"
+config_file="$config_dir/server.properties"
+mkdir -p -- "$config_dir"
+
+if [[ -e $config_file && ! -f $config_file ]]; then
+    echo "LanguageTool configuration is not a regular file: $config_file" >&2
+    exit 1
+fi
+
+if [[ -s $config_file ]]; then
+    sed --follow-symlinks -i \
+        -e "\$a\\languageModel=$ngram_root" \
+        -e '/^[[:space:]]*languageModel[[:space:]]*=/d' \
+        "$config_file"
+else
+    printf 'languageModel=%s\n' "$ngram_root" > "$config_file"
+fi
+echo "Configured $config_file."
+
+if [[ $service_mode == "none" ]]; then
+    cat <<EOF
+
+LanguageTool installation and configuration complete.
+  N-grams: $ngram_root
+  Config:  $config_file
+
+No service was registered or started. After port $default_port is available, run:
+  brew services start languagetool
+EOF
+    exit 0
+fi
+
+systemd_service_file=""
+if [[ $service_mode == "systemd" ]]; then
+    if [[ -z ${HOME:-} ]]; then
+        echo "HOME is required to create a systemd user service." >&2
+        exit 1
+    fi
+
+    languagetool_server="$brew_prefix/bin/languagetool-server"
+    if [[ ! -x $languagetool_server ]]; then
+        echo "LanguageTool server is not executable: $languagetool_server" >&2
+        exit 1
+    fi
+
+    systemd_config_home="${XDG_CONFIG_HOME:-$HOME/.config}"
+    if [[ $systemd_config_home != /* ]]; then
+        echo "Systemd configuration directory is not absolute: $systemd_config_home" >&2
+        exit 1
+    fi
+    systemd_user_dir="$systemd_config_home/systemd/user"
+    systemd_service_file="$systemd_user_dir/$systemd_service_name"
+    mkdir -p -- "$systemd_user_dir"
+
+    if [[ -e $systemd_service_file && ! -f $systemd_service_file ]]; then
+        echo "Systemd service is not a regular file: $systemd_service_file" >&2
+        exit 1
+    fi
+
+    printf '%s\n' \
+        '[Unit]' \
+        'Description=LanguageTool server with English n-gram data' \
+        '' \
+        '[Service]' \
+        'Type=simple' \
+        "ExecStart=\"$languagetool_server\" --config \"$config_file\" --port $server_port --allow-origin" \
+        'Restart=on-failure' \
+        'RestartSec=5s' \
+        '' \
+        '[Install]' \
+        'WantedBy=default.target' > "$systemd_service_file"
+    chmod 0644 "$systemd_service_file"
+
+    echo "Disabling the Homebrew service in favor of the custom-port service..."
+    "$brew_command" services stop languagetool
+    systemctl --user daemon-reload
+    systemctl --user enable --now "$systemd_service_name"
+    echo "Started and enabled $systemd_service_name on port $server_port."
+else
+    echo "Starting and registering the LanguageTool Homebrew user service..."
+    "$brew_command" services restart languagetool
+fi
+
+server_ready=false
+for _attempt in {1..60}; do
+    if curl \
+        --fail \
+        --max-time 2 \
+        --silent \
+        --output /dev/null \
+        --data-urlencode "language=en-US" \
+        --data-urlencode "text=a simple test" \
+        "http://localhost:$server_port/v2/check"; then
+        server_ready=true
+        break
+    fi
+    sleep 1
+done
+
+if [[ $server_ready != true ]]; then
+    echo "LanguageTool did not answer on http://localhost:$server_port." >&2
+    if [[ $service_mode == "systemd" ]]; then
+        echo "Inspect the service with:" >&2
+        echo "  journalctl --user -u $systemd_service_name" >&2
+    else
+        echo "Inspect the Homebrew service log:" >&2
+        echo "  $brew_prefix/var/log/languagetool/languagetool-server.log" >&2
+    fi
+    exit 1
+fi
+
+cat <<EOF
+
+LanguageTool installation complete.
+  Server:     http://localhost:$server_port
+  N-grams:    $ngram_root
+  Config:     $config_file
+EOF
+
+if [[ $service_mode == "systemd" ]]; then
+    cat <<EOF
+  Service:    $systemd_service_file
+
+The systemd user service is enabled to start when you log in.
+Disable and stop it with:
+  systemctl --user disable --now $systemd_service_name
+EOF
+else
+    cat <<EOF
+
+The Homebrew user service is registered to start when you log in.
+EOF
+fi
