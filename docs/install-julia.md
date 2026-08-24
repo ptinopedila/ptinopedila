@@ -1,3 +1,6 @@
+> **Created:** `2026-08-15T03:27+03:00` · **Last updated:**
+> `2026-08-15T03:27+03:00`
+
 # Install Julia
 
 Juliaup is preinstalled as Julia's official version manager. Install and select

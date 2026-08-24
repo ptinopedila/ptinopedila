@@ -1,3 +1,6 @@
+> **Created:** `2026-08-15T03:27+03:00` · **Last updated:**
+> `2026-08-24T02:48+03:00`
+
 # Choose a tmux session when connecting over SSH
 
 Ptinopedila helps preserve terminal work across unreliable or short-lived SSH
@@ -38,3 +41,10 @@ against connection loss, not a reboot or power loss on the remote computer.
 The chooser is not displayed inside an existing tmux session, which prevents
 tmux from starting recursively. It is also skipped when tmux is unavailable or
 when the `NO_AUTO_TMUX` escape hatch is set for the login.
+
+## Learn more about tmux
+
+This guide explains how Ptinopedila helps you choose and preserve tmux sessions
+over SSH. To learn more about using tmux itself, including windows, panes, copy
+mode, and keyboard shortcuts—see the
+[tmux cheat sheet](https://tmuxcheatsheet.com/).
