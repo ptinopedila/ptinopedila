@@ -99,9 +99,9 @@ configure-latex aux_dir="build-latex" pdf_dir=".":
     set -euo pipefail
 
     # Usage:
-    #   ujust configure-latex                     # Aux: build-latex/, PDF: project root
-    #   ujust configure-latex .latex-build        # Override only the auxiliary directory
-    #   ujust configure-latex .latex-build output # Override both directories
+    #   ujust configure-latex                     # Aux: build-latex/<source dir>/, PDF: beside source
+    #   ujust configure-latex .latex-build        # Override only the auxiliary base directory
+    #   ujust configure-latex .latex-build output # Mirror source directories under both bases
     AUX_DIR={{ quote(aux_dir) }}
     PDF_DIR={{ quote(pdf_dir) }}
     CONFIGURATOR="${PTINOPEDILA_LATEX_CONFIGURATOR:-/usr/libexec/ptinopedila/configure-latex}"

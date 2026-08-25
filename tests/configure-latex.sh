@@ -55,7 +55,7 @@ run_configurator
 
 jq --exit-status '
   .["editor.tabSize"] == 4 and
-  .["latex-workshop.latex.outDir"] == "%DIR%/build-latex" and
+  .["latex-workshop.latex.outDir"] == "%WORKSPACE_FOLDER%/build-latex/%RELATIVE_DIR%" and
   .["latex-workshop.latex.recipe.default"] == "first"
 ' "$project_directory/.vscode/settings.json" >/dev/null
 grep -Fxq '/existing-entry' "$project_directory/.gitignore"
@@ -77,7 +77,7 @@ second_checksum=$(sha256sum \
 
 run_configurator .latex-build output
 jq --exit-status '
-  .["latex-workshop.latex.outDir"] == "%DIR%/.latex-build"
+  .["latex-workshop.latex.outDir"] == "%WORKSPACE_FOLDER%/.latex-build/%RELATIVE_DIR%"
 ' "$project_directory/.vscode/settings.json" >/dev/null
 grep -Fxq '/.latex-build/' "$project_directory/.gitignore"
 grep -Fxq "\$out2_dir = 'output';" "$project_directory/.latexmkrc"

@@ -10,7 +10,7 @@ Configure the current project to build LaTeX documents with latexmk.
 
 Options:
   -a, --aux-dir PATH  Auxiliary-file directory (default: build-latex)
-  -p, --pdf-dir PATH  Final PDF directory (default: project root)
+  -p, --pdf-dir PATH  Final-PDF base directory (default: beside each source)
   -h, --help          Show this help
 EOF
 }
@@ -107,6 +107,10 @@ fi
 aux_dir=${aux_dir%/}
 pdf_dir=${pdf_dir%/}
 [[ -n $pdf_dir ]] || pdf_dir="."
+workspace_pdf_dir="%DIR%"
+if [[ $pdf_dir != "." ]]; then
+    workspace_pdf_dir="%WORKSPACE_FOLDER%/$pdf_dir/%RELATIVE_DIR%"
+fi
 
 mkdir -p .vscode
 settings_tmp=$(mktemp .vscode/settings.json.XXXXXX)
@@ -118,7 +122,8 @@ else
 fi
 
 if ! jq --indent 2 \
-    --arg out_dir "%DIR%/$aux_dir" \
+    --arg out_dir "%WORKSPACE_FOLDER%/$aux_dir/%RELATIVE_DIR%" \
+    --arg pdf_dir "$workspace_pdf_dir" \
     --arg tool_name "latexmk-project-config" \
     '
     .["latex-workshop.latex.outDir"] = $out_dir
@@ -126,11 +131,16 @@ if ! jq --indent 2 \
         [{
             "name": $tool_name,
             "command": "latexmk",
+            "cwd": "%WORKSPACE_FOLDER%",
             "args": [
+                "-cd",
                 "-pdf",
                 "-synctex=1",
                 "-interaction=nonstopmode",
                 "-file-line-error",
+                "-auxdir=" + $out_dir,
+                "-outdir=" + $out_dir,
+                "-out2dir=" + $pdf_dir,
                 "%DOC%"
             ]
         }]
@@ -194,4 +204,9 @@ printf '%s\n' \
 preserve_mode .latexmkrc "$latexmk_tmp"
 mv "$latexmk_tmp" .latexmkrc
 
-echo "LaTeX project configured: auxiliary files -> $aux_dir/, PDFs -> $pdf_dir"
+if [[ $pdf_dir = "." ]]; then
+    pdf_destination="beside each source document"
+else
+    pdf_destination="$pdf_dir/<source directory>/"
+fi
+echo "LaTeX project configured: auxiliary files -> $aux_dir/<source directory>/, PDFs -> $pdf_destination"
