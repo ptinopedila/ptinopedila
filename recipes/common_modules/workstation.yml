@@ -1,5 +1,12 @@
 # yaml-language-server: $schema=https://schema.blue-build.org/module-list-v1.json
 modules:
+  # Fail early if a package that Ptinopedila expects from Bluefin disappears.
+  # This must run before downstream DNF modules to test the upstream base.
+  - type: script
+    scripts:
+      - assert-inherited-packages.sh
+      - assert-inherited-squashfs-tools.sh
+
   # Common CLI/server layer
   - type: dnf
     install:
@@ -11,8 +18,6 @@ modules:
         - procinfo
         - smartmontools
         - util-linux-user
-        - zsh
-
   # Reset inherited Bluefin configuration that is incompatible with this image
   - type: script
     scripts:
@@ -44,7 +49,6 @@ modules:
         - dconf-editor
         - ddccontrol-gtk
         - file-roller-nautilus
-        - firewall-config
         - fontawesome-fonts-web
         - google-carlito-fonts
         - vicinae
@@ -101,7 +105,3 @@ modules:
           - io.github.getnf.embellish
           - me.iepure.devtoolbox
           - sh.loft.devpod
-
-          # Virtualization (Bluefin's Flatpak user-session stack)
-          - org.virt_manager.virt-manager
-          - org.virt_manager.virt_manager.Extension.Qemu

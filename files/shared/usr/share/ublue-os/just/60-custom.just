@@ -1,9 +1,9 @@
-# Install the Ptinopedila Homebrew bundle after switching images
+# Apply all image-managed Ptinopedila Homebrew bundles after switching images.
 [group('System')]
 install-ptinopedila-brew:
     #!/usr/bin/env bash
     set -euo pipefail
-    BREWFILE="/usr/share/ublue-os/homebrew/preinstall.d/ptinopedila-cli.Brewfile"
+    BREWFILE_DIR="/usr/share/ublue-os/homebrew/preinstall.d"
 
     if command -v brew >/dev/null 2>&1; then
         BREW="$(command -v brew)"
@@ -14,15 +14,21 @@ install-ptinopedila-brew:
         exit 1
     fi
 
-    if [ ! -f "${BREWFILE}" ]; then
-        echo "Missing ${BREWFILE}" >&2
+    shopt -s nullglob
+    BREWFILES=("${BREWFILE_DIR}"/*.Brewfile)
+    if [ "${#BREWFILES[@]}" -eq 0 ]; then
+        echo "No Brewfiles found under ${BREWFILE_DIR}." >&2
         exit 1
     fi
 
-    "${BREW}" bundle --file="${BREWFILE}"
+    "${BREW}" trust --tap ublue-os/tap
+    "${BREW}" trust --tap frostyard/tap
+    for brewfile in "${BREWFILES[@]}"; do
+        "${BREW}" bundle --file="${brewfile}"
+    done
 
     echo
-    echo "Ptinopedila Homebrew bundle installed."
+    echo "Ptinopedila Homebrew bundles installed."
     echo "Open a new terminal if newly installed commands are not yet on PATH."
 
 # Install a bare dotfiles repository into the current user's home directory.
