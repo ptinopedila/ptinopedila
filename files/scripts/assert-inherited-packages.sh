@@ -7,6 +7,8 @@ set -euo pipefail
 # the image build instead of silently changing the downstream package delta.
 readonly required_packages=(
     firewall-config
+    kmod-v4l2loopback
+    v4l2loopback
     zsh
 )
 
