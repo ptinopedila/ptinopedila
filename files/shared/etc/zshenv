@@ -7,42 +7,4 @@ export ZDOTDIR=$HOME/.config/zsh
 # https://blog.patshead.com/2011/04/improve-your-oh-my-zsh-startup-time-maybe.html
 skip_global_compinit=1
 
-# http://disq.us/p/f55b78
-setopt noglobalrcs
-
 export SYSTEM=$(uname -s)
-
-# https://github.com/sorin-ionescu/prezto/blob/master/runcoms/zshenv
-# Ensure that a non-login, non-interactive shell has a defined environment.
-if [[ ("$SHLVL" -eq 1 && ! -o LOGIN) && -s "${ZDOTDIR:-$HOME}/.zprofile" ]]; then
-  source "/etc/zprofile"
-  if [[ -f "${ZDOTDIR:-$HOME}/.zprofile" ]]; then
-    source "${ZDOTDIR:-$HOME}/.zprofile"
-  fi
-fi
-
-export XDG_DATA_DIRS="$HOME/.nix-profile/share:/nix/var/nix/profiles/default/share:$XDG_DATA_DIRS"
-
-[[ ! -d "$ZDOTDIR" ]] && mkdir "$ZDOTDIR"
-
-if [[ ! -f "${ZDOTDIR:-$HOME}/.zshrc" ]]; then
-  echo "source /etc/zshrc" > "${ZDOTDIR:-$HOME}/.zshrc"
-  echo "echo Your zshrc is located in ${ZDOTDIR:-$HOME}/.zshrc. We are sourcing /etc/zshrc for you. Feel free to remove that line and create your own config." >> "${ZDOTDIR:-$HOME}/.zshrc"
-fi
-
-# Execute code in the background to not affect the current session
-(
-    # <https://github.com/zimfw/zimfw/blob/master/login_init.zsh>
-    setopt LOCAL_OPTIONS EXTENDED_GLOB
-    autoload -U zrecompile
-
-    # Compile zcompdump, if modified, to increase startup speed.
-    zcompdump="${ZDOTDIR:-$HOME}/.zcompdump"
-    if [[ -s "$zcompdump" && (! -s "${zcompdump}.zwc" || "$zcompdump" -nt "${zcompdump}.zwc") ]]; then
-        zrecompile -pq "$zcompdump"
-    fi
-    # zcompile .zshrc
-    zrecompile -pq ${ZDOTDIR:-${HOME}}/.zshrc
-    zrecompile -pq ${ZDOTDIR:-${HOME}}/.zprofile
-    zrecompile -pq ${ZDOTDIR:-${HOME}}/.zshenv
-) &!

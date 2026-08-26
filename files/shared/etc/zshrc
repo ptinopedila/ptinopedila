@@ -15,6 +15,10 @@
 
 # Many settings were copied from https://github.com/ublue-os/bluefin/
 
+# Keep Zsh state and optional user configuration under ZDOTDIR. This runs only
+# for interactive shells that have not opted out of global startup files.
+mkdir -p -- "$ZDOTDIR"
+
 # Set prompts
 [[ "$PROMPT" = "%m%# " ]] && PROMPT='[%n@%m]%~%# '    # default prompt
 #RPROMPT=' %~'     # prompt for right side of screen

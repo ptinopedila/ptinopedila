@@ -42,8 +42,47 @@ Ptinopedila-specific guides:
 - [Install Conda](docs/install-conda.md)
 - [Install Julia](docs/install-julia.md)
 - [Install LanguageTool](docs/install-languagetool.md)
+- [Use and customize Zsh](docs/zsh.md)
 
 ## Installation
+
+> [!IMPORTANT]
+> Switching to Ptinopedila changes the system-wide Flatpak configuration.
+> Ptinopedila uses BlueBuild's `default-flatpaks` module, which removes the
+> Fedora Flatpak remote by default, configures Flathub, and installs
+> Ptinopedila's configured applications automatically.
+
+<details>
+<summary>How Ptinopedila manages Flatpaks</summary>
+
+The Flatpak setup runs on the first boot and checks the configuration again on
+subsequent boots. Missing applications from Ptinopedila's
+[system Flatpak list](recipes/common_modules/workstation.yml) are installed
+system-wide.
+
+The current `default-flatpaks` v2 module does not automatically uninstall
+existing Flatpak applications. This differs from v1, which removed Flatpaks
+installed from Fedora when replacing that remote. Nevertheless, inspect any
+existing system Flatpaks before switching because the Fedora remote that
+provided them will no longer be configured by default:
+
+```sh
+flatpak list --system --app --columns=application,origin
+```
+
+BlueBuild provides `bluebuild-flatpak-manager` for inspecting the image's
+configuration, running the setup manually, and disabling or re-enabling the
+automatic setup. Run the following command for its available operations:
+
+```sh
+bluebuild-flatpak-manager --help
+```
+
+See BlueBuild's
+[`default-flatpaks` documentation](https://blue-build.org/reference/modules/default-flatpaks/)
+for the current module behavior.
+
+</details>
 
 The following example switches an existing Fedora Atomic Desktop or Bluefin
 installation to the standard Ptinopedila image. For an NVIDIA system, replace
