@@ -9,6 +9,10 @@ image-version: stable
 
 # list of modules, executed in order
 modules:
+  # Guard the inherited support required for rootless CUDA containers.
+  - type: script
+    scripts:
+      - assert-inherited-nvidia-container-toolkit.sh
   - from-file: common_modules/bluefin-rename-dconf.yml
   - from-file: common_modules/workstation.yml
   - from-file: common_modules/secureblue.yml
