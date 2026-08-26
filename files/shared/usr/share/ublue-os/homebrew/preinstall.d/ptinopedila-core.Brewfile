@@ -4,6 +4,7 @@
 # Install policy: automatic
 
 brew "bat"
+brew "btop"
 brew "fd"
 brew "fzf"
 brew "glow"
