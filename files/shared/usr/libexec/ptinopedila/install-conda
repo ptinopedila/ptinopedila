@@ -170,12 +170,37 @@ if [[ -z $installer_name ]]; then
 fi
 
 installer_sha256=$(awk -v installer="$installer_name" '
-    index($0, "href=\"" installer "\"") { found = 1; next }
-    found && match($0, /[0-9a-fA-F]{64}/) {
-        print substr($0, RSTART, RLENGTH)
-        exit
+    function collect_checksums(line, remainder) {
+        remainder = line
+        while (match(remainder, /[0-9a-fA-F]{64}/)) {
+            checksum_count++
+            checksum = substr(remainder, RSTART, RLENGTH)
+            remainder = substr(remainder, RSTART + RLENGTH)
+        }
     }
-    found && /<\/tr>/ { exit }
+
+    index($0, "href=\"" installer "\"") {
+        matching_rows++
+        in_matching_row = 1
+        collect_checksums($0)
+        if (/<\/tr>/) {
+            in_matching_row = 0
+        }
+        next
+    }
+
+    in_matching_row {
+        collect_checksums($0)
+        if (/<\/tr>/) {
+            in_matching_row = 0
+        }
+    }
+
+    END {
+        if (matching_rows == 1 && checksum_count == 1) {
+            print checksum
+        }
+    }
 ' "$index_file")
 
 if [[ ! $installer_sha256 =~ ^[0-9a-fA-F]{64}$ ]]; then

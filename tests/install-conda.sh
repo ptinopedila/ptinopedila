@@ -4,6 +4,7 @@ set -euo pipefail
 
 repository_root=$(git rev-parse --show-toplevel)
 installer="$repository_root/files/shared/usr/libexec/ptinopedila/install-conda"
+fixture_dir="$repository_root/tests/fixtures/conda"
 test_root=$(mktemp -d "${TMPDIR:-/tmp}/ptinopedila-conda-test.XXXXXXXX")
 trap 'rm -rf -- "$test_root"' EXIT
 
@@ -49,8 +50,12 @@ done
 
 [[ -n $output_file && -n $url ]]
 if [[ $url == */ ]]; then
-    printf '<a href="%s">installer</a>\n%s\n' \
-        "${MOCK_INSTALLER_NAME:?}" "${MOCK_INSTALLER_SHA256:?}" > "$output_file"
+    if [[ -n ${MOCK_INDEX_FILE:-} ]]; then
+        cp -- "$MOCK_INDEX_FILE" "$output_file"
+    else
+        printf '<a href="%s">installer</a>\n%s\n' \
+            "${MOCK_INSTALLER_NAME:?}" "${MOCK_INSTALLER_SHA256:?}" > "$output_file"
+    fi
 else
     printf 'deliberately incorrect installer payload\n' > "$output_file"
 fi
@@ -64,6 +69,7 @@ run_installer() {
         MOCK_MACHINE_ARCH=${MOCK_MACHINE_ARCH:-x86_64} \
         MOCK_INSTALLER_NAME=${MOCK_INSTALLER_NAME:-Miniconda3-latest-Linux-x86_64.sh} \
         MOCK_INSTALLER_SHA256=${MOCK_INSTALLER_SHA256:-0000000000000000000000000000000000000000000000000000000000000000} \
+        MOCK_INDEX_FILE=${MOCK_INDEX_FILE:-} \
         "$installer" "$@"
 }
 
@@ -110,6 +116,31 @@ output=$(
         run_installer --distribution anaconda --dry-run
 )
 grep -Fq "Selected installer: $anaconda_installer" <<< "$output"
+
+output=$(
+    MOCK_INDEX_FILE="$fixture_dir/miniconda-index.html" \
+        run_installer --distribution miniconda --dry-run
+)
+grep -Fq 'Selected installer: Miniconda3-latest-Linux-x86_64.sh' <<< "$output"
+grep -Fq 'SHA-256: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa' \
+    <<< "$output"
+
+output=$(
+    MOCK_INDEX_FILE="$fixture_dir/anaconda-index.html" \
+        run_installer --distribution anaconda --dry-run
+)
+grep -Fq 'Selected installer: Anaconda3-2026.07-1-Linux-x86_64.sh' <<< "$output"
+grep -Fq 'SHA-256: cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc' \
+    <<< "$output"
+
+for invalid_fixture in \
+    checksum-after-row.html \
+    duplicate-installer-row.html \
+    multiple-checksums-in-row.html; do
+    MOCK_INDEX_FILE="$fixture_dir/$invalid_fixture" \
+        expect_failure "invalid installer metadata in $invalid_fixture" \
+            run_installer --dry-run
+done
 
 MOCK_MACHINE_ARCH=riscv64 \
     expect_failure 'unsupported machine architecture' run_installer --dry-run

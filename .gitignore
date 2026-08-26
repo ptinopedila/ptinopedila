@@ -3,5 +3,6 @@ cosign.key
 /Containerfile
 /VESTIGIAL_FILES.md
 todo/
+/skills-dev/
 docs_draft/
 /.bluebuild-scripts_*
