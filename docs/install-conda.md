@@ -1,5 +1,5 @@
 > **Created:** `2026-08-15T03:27+03:00` · **Last updated:**
-> `2026-08-15T03:27+03:00`
+> `2026-08-26T05:43+03:00`
 
 # Install Conda
 
@@ -56,3 +56,33 @@ Each new terminal starts in the unloaded state, so shells that never invoke
 `conda` remain unaffected.
 
 </details>
+
+## Keep project packages out of the system Python
+
+Ptinopedila's system Python is part of the operating-system image. Do not use
+`sudo pip`, DNF, or package layering to add Python libraries to it. Create an
+isolated environment for each project instead. For example:
+
+```sh
+conda create --name research python numpy pandas
+conda activate research
+```
+
+Conda can manage Python itself, Python libraries, and non-Python dependencies.
+If a required library is unavailable through the configured Conda channels,
+use `pip` only after activating the project environment:
+
+```sh
+python -m pip install PACKAGE
+```
+
+Install as much as practical with Conda first and add `pip` packages last;
+subsequent Conda changes can otherwise replace dependencies selected by `pip`.
+Record the project's direct Conda requirements with:
+
+```sh
+conda env export --from-history > environment.yml
+```
+
+If the project also depends on packages installed through `pip`, record those
+requirements explicitly as part of the project's environment definition.

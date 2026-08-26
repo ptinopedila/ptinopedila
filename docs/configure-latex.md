@@ -1,5 +1,5 @@
 > **Created:** `2026-08-25T22:46+03:00` · **Last updated:**
-> `2026-08-25T22:46+03:00`
+> `2026-08-26T05:57+03:00`
 
 # Configure LaTeX projects
 
@@ -36,3 +36,11 @@ For `docs/report.tex`, this produces auxiliary files under
 
 The command safely updates `.vscode/settings.json`, `.latexmkrc`, and
 `.gitignore` while preserving content outside its managed entries.
+
+## Dedicated editor alternative
+
+If you prefer a dedicated desktop editor over VS Code or a browser-based
+service such as Overleaf, [TeXstudio](https://texstudio.org/) is available from
+[Flathub](https://flathub.org/apps/org.texstudio.TeXstudio) and can be installed
+through Bazaar. The `ujust configure-latex` command configures LaTeX Workshop
+for VS Code; it does not configure TeXstudio.
