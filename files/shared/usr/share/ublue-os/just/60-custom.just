@@ -118,6 +118,20 @@ configure-latex aux_dir="build-latex" pdf_dir=".":
 
     exec "${CONFIGURATOR}" --aux-dir "${AUX_DIR}" --pdf-dir "${PDF_DIR}"
 
+# Enable or disable this PC's Tailscale exit-node advertisement.
+[group('System')]
+toggle-exitnode action="":
+    #!/usr/bin/env bash
+    set -euo pipefail
+
+    ACTION={{ quote(action) }}
+    TOGGLER="${PTINOPEDILA_EXITNODE_TOGGLER:-/usr/libexec/ptinopedila/toggle-exitnode}"
+
+    if [[ -n "${ACTION}" ]]; then
+        exec "${TOGGLER}" "${ACTION}"
+    fi
+    exec "${TOGGLER}"
+
 # Enable CUPS and open the IPP ports in the persistent firewall configuration.
 [confirm("Enable CUPS and open its firewall ports?")]
 enable-cups:

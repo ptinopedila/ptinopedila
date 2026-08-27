@@ -1,0 +1,193 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+readonly sysctl_file="${PTINOPEDILA_EXITNODE_SYSCTL_FILE:-/etc/sysctl.d/60-ptinopedila-tailscale-exit-node.conf}"
+readonly masquerade_marker="${PTINOPEDILA_EXITNODE_MASQUERADE_MARKER:-/var/lib/ptinopedila/tailscale-exit-node-masquerade}"
+
+usage() {
+    cat <<'EOF'
+Usage: toggle-exitnode [enable|disable]
+
+Enable or disable this PC's Tailscale exit-node advertisement. Without an
+argument, the command prompts for an action.
+EOF
+}
+
+choose_action() {
+    local choice
+
+    printf 'Enable or disable this PC as a Tailscale exit node? [e/d/c] ' >&2
+    if ! IFS= read -r choice; then
+        choice=''
+    fi
+
+    case "${choice,,}" in
+        e | enable) printf 'enable\n' ;;
+        d | disable) printf 'disable\n' ;;
+        c | cancel | '') printf 'cancel\n' ;;
+        *)
+            echo "Unknown choice: $choice" >&2
+            return 2
+            ;;
+    esac
+}
+
+require_tailscale() {
+    local running_state_pattern
+    local status
+
+    running_state_pattern='"BackendState"[[:space:]]*:[[:space:]]*"Running"'
+
+    if ! command -v tailscale >/dev/null 2>&1; then
+        echo 'Tailscale is not installed. No changes were made.' >&2
+        exit 1
+    fi
+
+    if ! status=$(tailscale status --json 2>/dev/null); then
+        cat >&2 <<'EOF'
+Tailscale is installed, but this PC is not connected to a tailnet.
+Connect it with `sudo tailscale up`, then run this recipe again.
+No changes were made.
+EOF
+        exit 1
+    fi
+
+    if [[ ! $status =~ $running_state_pattern ]]; then
+        cat >&2 <<'EOF'
+Tailscale is installed, but this PC is not connected to a tailnet.
+Connect it with `sudo tailscale up`, then run this recipe again.
+No changes were made.
+EOF
+        exit 1
+    fi
+}
+
+choose_routing_cleanup() {
+    local choice
+
+    cat >&2 <<'EOF'
+Remove the IP-forwarding and firewalld changes made by this recipe?
+Removing them can disrupt another routing setup. [y/N]
+EOF
+    if ! IFS= read -r choice; then
+        choice=''
+    fi
+
+    case "${choice,,}" in
+        y | yes) printf 'remove\n' ;;
+        n | no | '') printf 'keep\n' ;;
+        *)
+            echo "Unknown choice: $choice" >&2
+            return 2
+            ;;
+    esac
+}
+
+enable_exit_node() {
+    local temporary_sysctl
+
+    temporary_sysctl=$(mktemp "${TMPDIR:-/tmp}/ptinopedila-exitnode-sysctl.XXXXXXXX")
+    trap 'rm -f -- "$temporary_sysctl"' RETURN
+
+    printf '%s\n' \
+        'net.ipv4.ip_forward = 1' \
+        'net.ipv6.conf.all.forwarding = 1' > "$temporary_sysctl"
+
+    sudo install -D -m 0644 "$temporary_sysctl" "$sysctl_file"
+    sudo sysctl -p "$sysctl_file"
+
+    if command -v firewall-cmd >/dev/null 2>&1 \
+        && firewall-cmd --state >/dev/null 2>&1; then
+        if ! firewall-cmd --permanent --query-masquerade >/dev/null 2>&1; then
+            sudo firewall-cmd --permanent --add-masquerade
+            sudo install -D -m 0644 /dev/null "$masquerade_marker"
+        fi
+        sudo firewall-cmd --reload
+    fi
+
+    sudo tailscale set --advertise-exit-node
+    sudo tailscale up
+
+    cat <<'EOF'
+
+This PC is advertising itself as a Tailscale exit node.
+
+Open https://login.tailscale.com/admin/machines and approve this device:
+Machines -> this PC -> Edit route settings -> Use as exit node -> Save
+EOF
+}
+
+disable_exit_node() {
+    local cleanup
+    local firewalld_cleanup_complete=true
+
+    sudo tailscale set --advertise-exit-node=false
+
+    cleanup=$(choose_routing_cleanup)
+    if [[ $cleanup == remove ]]; then
+        sudo rm -f -- "$sysctl_file"
+        sudo sysctl --system
+
+        if [[ -e $masquerade_marker ]] \
+            && command -v firewall-cmd >/dev/null 2>&1 \
+            && firewall-cmd --state >/dev/null 2>&1; then
+            if firewall-cmd --permanent --query-masquerade >/dev/null 2>&1; then
+                sudo firewall-cmd --permanent --remove-masquerade
+                sudo firewall-cmd --reload
+            fi
+            sudo rm -f -- "$masquerade_marker"
+        elif [[ -e $masquerade_marker ]]; then
+            firewalld_cleanup_complete=false
+        fi
+
+        if [[ $firewalld_cleanup_complete == false ]]; then
+            cat >&2 <<'EOF'
+This PC has stopped advertising itself as a Tailscale exit node.
+The recipe's sysctl file was removed.
+Firewalld is not running, so its persistent masquerade setting was not removed.
+Start firewalld and run this recipe again to finish the cleanup.
+EOF
+            return 1
+        fi
+
+        cat <<'EOF'
+This PC has stopped advertising itself as a Tailscale exit node.
+The recipe's persistent routing settings were removed.
+Other sysctl files can still keep IP forwarding enabled.
+EOF
+        return
+    fi
+
+    cat <<'EOF'
+This PC has stopped advertising itself as a Tailscale exit node.
+The persistent routing settings were kept.
+EOF
+}
+
+if (( $# > 1 )); then
+    usage >&2
+    exit 2
+fi
+
+action=${1:-}
+if [[ -z $action ]]; then
+    action=$(choose_action)
+fi
+
+case "$action" in
+    enable)
+        require_tailscale
+        enable_exit_node
+        ;;
+    disable)
+        require_tailscale
+        disable_exit_node
+        ;;
+    cancel) echo 'No changes made.' ;;
+    -h | --help) usage ;;
+    *)
+        usage >&2
+        exit 2
+        ;;
+esac
