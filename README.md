@@ -41,6 +41,7 @@ Ptinopedila-specific guides:
 - [Choose a tmux session when connecting over SSH](docs/ssh-tmux-sessions.md)
 - [Install dotfiles](docs/install-dotfiles.md)
 - [Install Conda](docs/install-conda.md)
+- [Install Dynare for Octave](docs/install-dynare.md)
 - [Install Julia](docs/install-julia.md)
 - [Install LanguageTool](docs/install-languagetool.md)
 - [Use and customize Zsh](docs/zsh.md)

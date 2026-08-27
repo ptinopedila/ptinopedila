@@ -31,7 +31,12 @@ jobs:
         uses: extractions/setup-just@v4
 
       - name: Check shell syntax
-        run: bash -n files/scripts/*.sh files/scripts/secureblue/*.sh files/shared/usr/libexec/ptinopedila/* tests/*.sh
+        run: >-
+          bash -n
+          files/scripts/*.sh
+          files/scripts/secureblue/*.sh
+          files/shared/usr/libexec/ptinopedila/*
+          tests/*.sh
 
       - name: Check just formatting
         run: just --fmt --check --unstable --justfile files/shared/usr/share/ublue-os/just/60-custom.just
@@ -43,6 +48,9 @@ jobs:
         run: |
           tests/install-dotfiles.sh
           tests/install-conda.sh
+          tests/check-optim-upstream.sh
+          tests/install-dynare.sh
+          tests/octave-integration.sh
           tests/install-languagetool.sh
           tests/configure-latex.sh
           tests/remove-inherited-ujust-recipes.sh
@@ -74,3 +82,60 @@ jobs:
           pr_event_number: ${{ github.event.number }}
           maximize_build_space: 'true'
           retry_push_count: '3'
+
+  optim-upstream-check:
+    name: Check whether optim still needs C++20
+    needs: bluebuild
+    if: github.event_name == 'schedule'
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - name: Check whether this is the first scheduled build of the month
+        id: monthly
+        run: |
+          if (( 10#$(date -u +%d) <= 7 )); then
+            echo "due=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "due=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Check out repository
+        if: steps.monthly.outputs.due == 'true'
+        uses: actions/checkout@v7
+
+      - name: Install Octave
+        if: steps.monthly.outputs.due == 'true'
+        run: /home/linuxbrew/.linuxbrew/bin/brew install octave
+
+      - name: Test optim without the workaround
+        if: steps.monthly.outputs.due == 'true'
+        id: optim
+        run: files/scripts/check-optim-upstream.sh
+
+      - name: Open an issue when upstream is fixed
+        if: steps.optim.outputs.fixed == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ISSUE_TITLE: Remove the optim C++20 compatibility workaround
+        run: |
+          existing_issue=$(gh issue list \
+            --state all \
+            --limit 100 \
+            --json number,title \
+            --jq ".[] | select(.title == \"$ISSUE_TITLE\") | .number")
+
+          if [[ -n $existing_issue ]]; then
+            echo "Issue #$existing_issue already records the upstream fix."
+            exit 0
+          fi
+
+          gh issue create \
+            --title "$ISSUE_TITLE" \
+            --body "The monthly post-build check installed optim and ran nonlin_min without setting CXXFLAGS. The upstream workaround is no longer needed on the tested Homebrew Octave stack.
+
+          Review and remove the fallback from files/shared/usr/libexec/ptinopedila/install-dynare.
+
+          Workflow run: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"

@@ -1,0 +1,384 @@
+#!/usr/bin/env bash
+
+set -Eeuo pipefail
+umask 077
+
+readonly begin_marker='% >>> ptinopedila dynare >>>'
+readonly end_marker='% <<< ptinopedila dynare <<<'
+readonly octave_packages=(io datatypes statistics control struct)
+
+if (( EUID == 0 )); then
+    echo "Run this installer as your ordinary user, without sudo." >&2
+    exit 1
+fi
+
+if [[ -z ${HOME:-} || $HOME != /* ]]; then
+    echo "HOME must contain an absolute path." >&2
+    exit 1
+fi
+
+config_home=${XDG_CONFIG_HOME:-$HOME/.config}
+if [[ $config_home != /* ]]; then
+    echo "XDG_CONFIG_HOME must contain an absolute path when it is set." >&2
+    exit 1
+fi
+
+data_home=${XDG_DATA_HOME:-$HOME/.local/share}
+if [[ $data_home != /* ]]; then
+    echo "XDG_DATA_HOME must contain an absolute path when it is set." >&2
+    exit 1
+fi
+
+octave_config_dir="$config_home/octave"
+octave_config="$octave_config_dir/octaverc"
+applications_dir="$data_home/applications"
+
+fail_malformed_config() {
+    echo "The managed Dynare block is malformed in: $octave_config" >&2
+    echo "Repair or remove its Ptinopedila marker lines, then rerun the recipe." >&2
+    exit 1
+}
+
+if [[ -e $octave_config || -L $octave_config ]]; then
+    if [[ ! -f $octave_config ]]; then
+        echo "Octave configuration is not a regular file: $octave_config" >&2
+        exit 1
+    fi
+
+    begin_count=$(grep -Fxc "$begin_marker" "$octave_config" || true)
+    end_count=$(grep -Fxc "$end_marker" "$octave_config" || true)
+    if (( begin_count != end_count || begin_count > 1 )); then
+        fail_malformed_config
+    fi
+
+    if (( begin_count == 1 )); then
+        marker_state=before
+        markers_are_valid=true
+        while IFS= read -r config_line || [[ -n $config_line ]]; do
+            if [[ $config_line == "$begin_marker" ]]; then
+                if [[ $marker_state != before ]]; then
+                    markers_are_valid=false
+                    break
+                fi
+                marker_state=inside
+            elif [[ $config_line == "$end_marker" ]]; then
+                if [[ $marker_state != inside ]]; then
+                    markers_are_valid=false
+                    break
+                fi
+                marker_state=after
+            fi
+        done < "$octave_config"
+
+        if [[ $markers_are_valid != true || $marker_state != after ]]; then
+            fail_malformed_config
+        fi
+    fi
+else
+    begin_count=0
+fi
+
+if [[ -n ${PTINOPEDILA_BREW_COMMAND:-} ]]; then
+    brew_command=$PTINOPEDILA_BREW_COMMAND
+elif command -v brew >/dev/null 2>&1; then
+    brew_command=$(command -v brew)
+elif [[ -x /home/linuxbrew/.linuxbrew/bin/brew ]]; then
+    brew_command=/home/linuxbrew/.linuxbrew/bin/brew
+elif [[ -x /var/home/linuxbrew/.linuxbrew/bin/brew ]]; then
+    brew_command=/var/home/linuxbrew/.linuxbrew/bin/brew
+else
+    echo "Homebrew is required to install Dynare." >&2
+    exit 1
+fi
+
+if [[ ! -x $brew_command ]]; then
+    echo "Homebrew command is not executable: $brew_command" >&2
+    exit 1
+fi
+
+for required_command in awk cat cp env grep ln mkdir mktemp mv od readlink rm tail tee tr; do
+    if ! command -v "$required_command" >/dev/null 2>&1; then
+        echo "Required command not found: $required_command" >&2
+        exit 1
+    fi
+done
+
+if "$brew_command" list --formula dynare >/dev/null 2>&1; then
+    echo "Dynare is already installed with Homebrew."
+else
+    echo "Installing Dynare and its Octave dependency with Homebrew..."
+    "$brew_command" install dynare
+fi
+
+dynare_prefix=$($brew_command --prefix dynare)
+octave_prefix=$($brew_command --prefix octave)
+brew_prefix=$($brew_command --prefix)
+qtbase_prefix=$($brew_command --prefix qtbase)
+dynare_path="$dynare_prefix/lib/dynare/matlab"
+octave_command="$octave_prefix/bin/octave-cli"
+mkoctfile_command="$octave_prefix/bin/mkoctfile"
+example_model="$dynare_prefix/share/dynare/examples/bkk.mod"
+octave_desktop_source="$octave_prefix/share/applications/org.octave.Octave.desktop"
+octave_desktop_link="$applications_dir/org.octave.Octave.desktop"
+
+for required_directory in \
+    "$brew_prefix" \
+    "$dynare_prefix" \
+    "$octave_prefix" \
+    "$qtbase_prefix" \
+    "$dynare_path"; do
+    if [[ $required_directory != /* || ! -d $required_directory ]]; then
+        echo "Expected installation directory not found: $required_directory" >&2
+        exit 1
+    fi
+done
+
+qtbase_platforms="$qtbase_prefix/share/qt/plugins/platforms"
+linked_qt_platforms="$brew_prefix/share/qt/plugins/platforms"
+for platform_plugin in libqwayland.so libqxcb.so; do
+    if [[ ! -f $qtbase_platforms/$platform_plugin ]]; then
+        echo "Homebrew qtbase is missing $platform_plugin." >&2
+        exit 1
+    fi
+done
+
+if [[ ! -f $linked_qt_platforms/libqwayland.so \
+    || ! -f $linked_qt_platforms/libqxcb.so ]]; then
+    echo "Repairing Homebrew's missing Qt platform-plugin links..."
+    "$brew_command" unlink qtbase
+    "$brew_command" link qtbase
+fi
+
+for platform_plugin in libqwayland.so libqxcb.so; do
+    if [[ ! -f $linked_qt_platforms/$platform_plugin ]]; then
+        echo "Homebrew did not link the Qt platform plugin: $platform_plugin" >&2
+        exit 1
+    fi
+done
+
+if [[ $dynare_path == *$'\n'* || $dynare_path == *'"'* || $dynare_path == *'\\'* ]]; then
+    echo "Dynare returned a path that cannot be written safely to Octave configuration:" >&2
+    echo "  $dynare_path" >&2
+    exit 1
+fi
+
+if [[ ! -x $octave_command ]]; then
+    echo "Homebrew Octave CLI is not executable: $octave_command" >&2
+    exit 1
+fi
+
+if [[ ! -x $mkoctfile_command ]]; then
+    echo "Homebrew mkoctfile is not executable: $mkoctfile_command" >&2
+    exit 1
+fi
+
+if [[ ! -f $example_model ]]; then
+    echo "Dynare's packaged smoke-test model is missing: $example_model" >&2
+    exit 1
+fi
+
+if [[ ! -f $octave_desktop_source ]]; then
+    echo "Homebrew Octave's desktop entry is missing: $octave_desktop_source" >&2
+    exit 1
+fi
+
+if [[ -e $octave_desktop_link || -L $octave_desktop_link ]]; then
+    if [[ ! -L $octave_desktop_link \
+        || $(readlink -- "$octave_desktop_link") != "$octave_desktop_source" ]]; then
+        echo "Octave desktop entry already exists and is not managed by Ptinopedila:" >&2
+        echo "  $octave_desktop_link" >&2
+        exit 1
+    fi
+fi
+
+temporary_directory=$(mktemp -d "${TMPDIR:-/tmp}/ptinopedila-dynare.XXXXXXXX")
+config_staging=""
+cleanup() {
+    rm -rf -- "$temporary_directory"
+    if [[ -n $config_staging && -e $config_staging ]]; then
+        rm -f -- "$config_staging"
+    fi
+}
+trap cleanup EXIT
+
+download_helper_directory="$temporary_directory/download-helper"
+mkdir -- "$download_helper_directory"
+cat > "$download_helper_directory/urlwrite.m" <<'EOF'
+function [filename, success, message] = urlwrite (url, localfile, varargin)
+  [filename, success, message] = builtin ("urlwrite", url, localfile, ...
+                                           varargin{:}, "Timeout", 120);
+endfunction
+EOF
+
+echo "Installing or refreshing Dynare's Octave add-ons for the current user..."
+refresh_option=' -refresh'
+for package_name in "${octave_packages[@]}"; do
+    package_installed=false
+    for attempt in 1 2 3; do
+        if "$octave_command" \
+            --quiet \
+            --no-history \
+            --no-init-user \
+            --path "$download_helper_directory" \
+            --eval "pkg install -local$refresh_option $package_name"; then
+            package_installed=true
+            break
+        fi
+
+        if (( attempt < 3 )); then
+            echo "Retrying the $package_name Octave package ($(( attempt + 1 ))/3)..." >&2
+        fi
+    done
+
+    if [[ $package_installed != true ]]; then
+        echo "Failed to install the $package_name Octave package after 3 attempts." >&2
+        exit 1
+    fi
+    refresh_option=''
+done
+
+optim_install_log="$temporary_directory/optim-install.log"
+if "$octave_command" \
+    --quiet \
+    --no-history \
+    --no-init-user \
+    --path "$download_helper_directory" \
+    --eval "pkg install -local optim" 2>&1 | tee "$optim_install_log"; then
+    echo "The optim package built without a compatibility workaround."
+elif grep -Fq 'octave_execution_exception' "$optim_install_log" \
+    && grep -Fq 'octave_vformat' "$optim_install_log"; then
+    echo "Retrying optim with the Octave 11 C++20 compatibility workaround..."
+    optim_cxxflags=$($mkoctfile_command -p CXXFLAGS)
+    if ! env CXXFLAGS="$optim_cxxflags -std=gnu++20" \
+        "$octave_command" \
+        --quiet \
+        --no-history \
+        --no-init-user \
+        --path "$download_helper_directory" \
+        --eval "pkg install -local optim"; then
+        echo "The optim package still failed with the C++20 workaround." >&2
+        exit 1
+    fi
+else
+    cat >&2 <<'EOF'
+The optim package failed for a reason other than the known Octave 11 C++
+configuration bug. The installer stopped without hiding the new failure.
+EOF
+    exit 1
+fi
+
+smoke_directory="$temporary_directory/smoke"
+mkdir -- "$smoke_directory"
+cp -- "$example_model" "$smoke_directory/bkk.mod"
+smoke_script="$smoke_directory/dynare-smoke-test.m"
+cat > "$smoke_script" <<'EOF'
+dynare bkk.mod console
+
+pkg load optim;
+optimizer_options = struct (...
+  "analytic_derivation", false, ...
+  "optim_opt", "", ...
+  "silent_optimizer", true);
+[solution, objective_value, exitflag] = dynare_minimize_objective (...
+  @(parameters) (parameters(1) - 3)^2, ...
+  0, 1, optimizer_options, [-10, 10], {"test_parameter"}, [], []);
+assert (abs (solution(1) - 3) < 1e-6);
+assert (objective_value < 1e-10);
+assert (exitflag > 0);
+EOF
+
+echo "Testing Dynare's bkk.mod model and optim integration..."
+(
+    cd "$smoke_directory"
+    "$octave_command" \
+        --quiet \
+        --no-history \
+        --no-init-user \
+        --path "$dynare_path" \
+    "$smoke_script"
+)
+
+mkdir -p -- "$applications_dir"
+if [[ ! -L $octave_desktop_link ]]; then
+    ln -s -- "$octave_desktop_source" "$octave_desktop_link"
+fi
+
+mkdir -p -- "$octave_config_dir"
+config_staging=$(mktemp "$octave_config_dir/.octaverc.XXXXXXXX")
+
+write_managed_block() {
+    printf '%s\n' \
+        "$begin_marker" \
+        "dynare_path = \"$dynare_path\";" \
+        'if (isfolder (dynare_path))' \
+        '  addpath (dynare_path);' \
+        'endif' \
+        'clear dynare_path;' \
+        "$end_marker"
+}
+
+if (( begin_count == 1 )); then
+    awk \
+        -v begin_marker="$begin_marker" \
+        -v end_marker="$end_marker" \
+        -v dynare_path="$dynare_path" \
+        '
+        $0 == begin_marker {
+            print begin_marker
+            print "dynare_path = \"" dynare_path "\";"
+            print "if (isfolder (dynare_path))"
+            print "  addpath (dynare_path);"
+            print "endif"
+            print "clear dynare_path;"
+            in_managed_block = 1
+            next
+        }
+        in_managed_block && $0 == end_marker {
+            print end_marker
+            in_managed_block = 0
+            next
+        }
+        !in_managed_block { print }
+        ' "$octave_config" > "$config_staging"
+else
+    if [[ -f $octave_config ]]; then
+        cp -- "$octave_config" "$config_staging"
+    fi
+
+    if [[ -s $config_staging ]]; then
+        last_byte=$(tail -c 1 -- "$config_staging" | od -An -tx1 | tr -d '[:space:]')
+        if [[ $last_byte != 0a ]]; then
+            printf '\n' >> "$config_staging"
+        fi
+        printf '\n' >> "$config_staging"
+    fi
+    write_managed_block >> "$config_staging"
+fi
+
+if [[ -e $octave_config || -L $octave_config ]]; then
+    cp -- "$config_staging" "$octave_config"
+    rm -f -- "$config_staging"
+else
+    mv -- "$config_staging" "$octave_config"
+fi
+config_staging=""
+
+cat <<EOF
+
+Dynare is installed and ready for Octave.
+
+Octave startup file:
+  $octave_config
+
+Dynare path:
+  $dynare_path
+
+Octave desktop entry:
+  $octave_desktop_link
+
+Open Octave and run a model with:
+  dynare MODEL_FILE.mod
+
+Homebrew updates Dynare and Octave. Rerun this recipe after those updates to
+refresh the Octave add-ons and repeat the smoke test.
+EOF

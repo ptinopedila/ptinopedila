@@ -70,6 +70,16 @@ install-conda distribution="miniconda":
 
     exec "${INSTALLER}" --distribution "${DISTRIBUTION}"
 
+# Install Dynare with Homebrew Octave and configure it for the current user.
+[group('Setup')]
+install-dynare:
+    #!/usr/bin/env bash
+    set -euo pipefail
+
+    INSTALLER="${PTINOPEDILA_DYNARE_INSTALLER:-/usr/libexec/ptinopedila/install-dynare}"
+
+    exec "${INSTALLER}"
+
 # Install a local LanguageTool server with the shared English n-gram model.
 [arg('no_service', long='no-service', value='true')]
 [arg('port', long='port')]
