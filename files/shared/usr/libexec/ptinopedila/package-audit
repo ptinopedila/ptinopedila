@@ -1,0 +1,595 @@
+#!/usr/bin/env python3
+"""Report packages installed outside ptinopedila's managed package sets."""
+
+from __future__ import annotations
+
+import argparse
+import json
+import os
+import re
+import socket
+import subprocess
+import sys
+import tomllib
+from pathlib import Path
+from typing import NamedTuple
+
+
+BREWFILE_DIR: Path = Path(
+    "/usr/share/ublue-os/homebrew/preinstall.d"
+)
+MANAGED_FLATPAKS_FILE: Path = Path(
+    "/usr/share/ptinopedila/managed-flatpaks.txt"
+)
+REMOTE_BREW_COMMAND: str = "/home/linuxbrew/.linuxbrew/bin/brew"
+FLATPAK_COMMAND: str = "/usr/bin/flatpak"
+RPM_OSTREE_COMMAND: str = "/usr/bin/rpm-ostree"
+LOCAL_PC_NAME: str = socket.gethostname()
+DEFAULT_OUTPUT_NAME: str = "package-audit.md"
+LAYERING_WARNING: str = (
+    "Ptinopedila does not support package layering. "
+    "These entries can cause update problems."
+)
+BREWFILE_ENTRY: re.Pattern[str] = re.compile(
+    r"^\s*(brew|cask)\s+['\"]([^'\"]+)['\"]"
+)
+
+HomebrewPackage = tuple[str, str]
+FlatpakApplication = tuple[str, str]
+
+
+class ComputerAudit(NamedTuple):
+    homebrew: set[HomebrewPackage]
+    flatpaks: set[FlatpakApplication]
+    layered_rpms: set[str]
+
+
+def default_config_path() -> Path:
+    config_home: str | None = os.environ.get("XDG_CONFIG_HOME")
+    if config_home is not None:
+        config_home_path = Path(config_home)
+        if not config_home_path.is_absolute():
+            raise RuntimeError(
+                "XDG_CONFIG_HOME must contain an absolute path when it is set"
+            )
+    else:
+        config_home_path = Path.home() / ".config"
+    return config_home_path / "ptinopedila/package-audit.toml"
+
+
+def canonical_homebrew_name(name: str) -> str:
+    """Match qualified Brewfile entries to names printed by brew list."""
+    return name.rsplit("/", maxsplit=1)[-1]
+
+
+def read_managed_homebrew() -> set[HomebrewPackage]:
+    managed: set[HomebrewPackage] = set()
+    brewfiles: list[Path] = sorted(BREWFILE_DIR.glob("*.Brewfile"))
+    if not brewfiles:
+        raise RuntimeError(f"no Brewfiles found in {BREWFILE_DIR}")
+
+    for brewfile in brewfiles:
+        for line in brewfile.read_text(encoding="utf-8").splitlines():
+            match: re.Match[str] | None = BREWFILE_ENTRY.match(line)
+            if match is not None:
+                package_type, name = match.groups()
+                managed.add(
+                    (package_type, canonical_homebrew_name(name))
+                )
+    return managed
+
+
+def read_managed_flatpaks() -> set[FlatpakApplication] | None:
+    try:
+        lines: list[str] = MANAGED_FLATPAKS_FILE.read_text(
+            encoding="utf-8"
+        ).splitlines()
+    except FileNotFoundError:
+        return None
+
+    managed: set[FlatpakApplication] = set()
+    for line_number, line in enumerate(lines, start=1):
+        if not line:
+            continue
+        try:
+            scope, application = line.split("\t", maxsplit=1)
+        except ValueError as error:
+            raise RuntimeError(
+                f"invalid managed Flatpak entry on line {line_number}: {line}"
+            ) from error
+        if scope not in {"user", "system"} or not application:
+            raise RuntimeError(
+                f"invalid managed Flatpak entry on line {line_number}: {line}"
+            )
+        managed.add((scope, application))
+    return managed
+
+
+def load_remotes(config_path: Path) -> dict[str, str]:
+    if not config_path.exists():
+        return {}
+    if not config_path.is_file():
+        raise RuntimeError(f"configuration is not a regular file: {config_path}")
+
+    try:
+        with config_path.open("rb") as config_file:
+            config = tomllib.load(config_file)
+    except tomllib.TOMLDecodeError as error:
+        raise RuntimeError(f"invalid TOML in {config_path}: {error}") from error
+
+    raw_remotes = config.get("remotes", {})
+    if not isinstance(raw_remotes, dict):
+        raise RuntimeError(f"[remotes] must be a TOML table in {config_path}")
+
+    remotes: dict[str, str] = {}
+    for ssh_target, label in raw_remotes.items():
+        if (
+            not isinstance(ssh_target, str)
+            or not ssh_target
+            or ssh_target.startswith("-")
+            or any(character.isspace() for character in ssh_target)
+        ):
+            raise RuntimeError(f"invalid SSH target in {config_path}: {ssh_target!r}")
+        if not isinstance(label, str) or not label.strip():
+            raise RuntimeError(
+                f"label for SSH target {ssh_target!r} must be a non-empty string"
+            )
+        remotes[ssh_target] = label.strip()
+    return remotes
+
+
+def run_text(command: list[str], ssh_target: str | None = None) -> str:
+    if ssh_target is None:
+        full_command = command
+    else:
+        full_command = [
+            "ssh",
+            "-o",
+            "BatchMode=yes",
+            "-o",
+            "ConnectTimeout=10",
+            ssh_target,
+            *command,
+        ]
+
+    result: subprocess.CompletedProcess[str] = subprocess.run(
+        full_command,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    return result.stdout
+
+
+def run_lines(
+    command: list[str], ssh_target: str | None = None
+) -> set[str]:
+    return {
+        line.strip()
+        for line in run_text(command, ssh_target).splitlines()
+        if line.strip()
+    }
+
+
+def get_installed_homebrew(
+    ssh_target: str | None = None,
+) -> set[HomebrewPackage]:
+    brew_command: str = (
+        "brew" if ssh_target is None else REMOTE_BREW_COMMAND
+    )
+    formulae: set[str] = run_lines(
+        [brew_command, "list", "--installed-on-request"], ssh_target
+    )
+    casks: set[str] = run_lines(
+        [brew_command, "list", "--cask"], ssh_target
+    )
+    return {("brew", name) for name in formulae} | {
+        ("cask", name) for name in casks
+    }
+
+
+def get_installed_flatpaks(
+    ssh_target: str | None = None,
+) -> set[FlatpakApplication]:
+    installed: set[FlatpakApplication] = set()
+    for scope in ("user", "system"):
+        applications: set[str] = run_lines(
+            [
+                FLATPAK_COMMAND,
+                "list",
+                f"--{scope}",
+                "--app",
+                "--columns=application",
+            ],
+            ssh_target,
+        )
+        installed.update((scope, application) for application in applications)
+    return installed
+
+
+def parse_layered_rpms(status_text: str) -> set[str]:
+    try:
+        status = json.loads(status_text)
+    except json.JSONDecodeError as error:
+        raise RuntimeError("rpm-ostree returned invalid JSON") from error
+
+    deployments = status.get("deployments")
+    if not isinstance(deployments, list):
+        raise RuntimeError("rpm-ostree status has no deployment list")
+
+    booted_deployment = next(
+        (
+            deployment
+            for deployment in deployments
+            if isinstance(deployment, dict) and deployment.get("booted") is True
+        ),
+        None,
+    )
+    if booted_deployment is None:
+        raise RuntimeError("rpm-ostree status has no booted deployment")
+
+    layered: set[str] = set()
+    for field_name in ("requested-packages", "requested-local-packages"):
+        packages = booted_deployment.get(field_name, [])
+        if not isinstance(packages, list) or not all(
+            isinstance(package, str) for package in packages
+        ):
+            raise RuntimeError(
+                f"rpm-ostree status contains invalid {field_name} data"
+            )
+        layered.update(packages)
+    return layered
+
+
+def get_layered_rpms(ssh_target: str | None = None) -> set[str]:
+    status_text: str = run_text(
+        [RPM_OSTREE_COMMAND, "status", "--json"], ssh_target
+    )
+    return parse_layered_rpms(status_text)
+
+
+def audit_computer(
+    ssh_target: str | None,
+    managed_homebrew: set[HomebrewPackage],
+    managed_flatpaks: set[FlatpakApplication] | None,
+) -> ComputerAudit:
+    unmanaged_flatpaks: set[FlatpakApplication] = set()
+    if managed_flatpaks is not None:
+        unmanaged_flatpaks = (
+            get_installed_flatpaks(ssh_target) - managed_flatpaks
+        )
+
+    return ComputerAudit(
+        homebrew=get_installed_homebrew(ssh_target) - managed_homebrew,
+        flatpaks=unmanaged_flatpaks,
+        layered_rpms=get_layered_rpms(ssh_target),
+    )
+
+
+def homebrew_rows(
+    audits: dict[str, ComputerAudit],
+) -> tuple[list[str], list[list[str]]]:
+    computer_names: list[str] = list(audits)
+    packages: set[HomebrewPackage] = set().union(
+        *(audit.homebrew for audit in audits.values())
+    )
+    ordered_packages: list[HomebrewPackage] = sorted(
+        packages,
+        key=lambda package: (package[0] == "cask", package[1]),
+    )
+    rows: list[list[str]] = []
+    for package_type, package_name in ordered_packages:
+        rows.append(
+            [
+                "Formula" if package_type == "brew" else "Cask",
+                package_name,
+                *[
+                    "✓"
+                    if (package_type, package_name) in audits[name].homebrew
+                    else ""
+                    for name in computer_names
+                ],
+            ]
+        )
+    return ["Type", "Package", *computer_names], rows
+
+
+def flatpak_rows(
+    audits: dict[str, ComputerAudit],
+) -> tuple[list[str], list[list[str]]]:
+    computer_names: list[str] = list(audits)
+    applications: set[FlatpakApplication] = set().union(
+        *(audit.flatpaks for audit in audits.values())
+    )
+    ordered_applications: list[FlatpakApplication] = sorted(
+        applications,
+        key=lambda application: (
+            application[0] == "system",
+            application[1],
+        ),
+    )
+    rows: list[list[str]] = []
+    for scope, application_id in ordered_applications:
+        rows.append(
+            [
+                scope.title(),
+                application_id,
+                *[
+                    "✓"
+                    if (scope, application_id) in audits[name].flatpaks
+                    else ""
+                    for name in computer_names
+                ],
+            ]
+        )
+    return ["Scope", "Application", *computer_names], rows
+
+
+def layered_rpm_rows(
+    audits: dict[str, ComputerAudit],
+) -> tuple[list[str], list[list[str]]]:
+    computer_names: list[str] = list(audits)
+    packages: list[str] = sorted(
+        set().union(*(audit.layered_rpms for audit in audits.values()))
+    )
+    rows: list[list[str]] = [
+        [
+            package,
+            *[
+                "✓" if package in audits[name].layered_rpms else ""
+                for name in computer_names
+            ],
+        ]
+        for package in packages
+    ]
+    return ["Package", *computer_names], rows
+
+
+def render_terminal_table(
+    headers: list[str], rows: list[list[str]], computer_column_start: int
+) -> list[str]:
+    if not rows:
+        return ["None found."]
+
+    column_widths: list[int] = [
+        max(len(header), *(len(row[index]) for row in rows))
+        for index, header in enumerate(headers)
+    ]
+
+    def border(left: str, middle: str, right: str) -> str:
+        cells: str = middle.join(
+            "─" * (width + 2) for width in column_widths
+        )
+        return f"{left}{cells}{right}"
+
+    def table_row(cells: list[str]) -> str:
+        formatted_cells: list[str] = [
+            cell.center(column_widths[index])
+            if index >= computer_column_start
+            else cell.ljust(column_widths[index])
+            for index, cell in enumerate(cells)
+        ]
+        return "│ " + " │ ".join(formatted_cells) + " │"
+
+    return [
+        border("┌", "┬", "┐"),
+        table_row(headers),
+        border("├", "┼", "┤"),
+        *(table_row(row) for row in rows),
+        border("└", "┴", "┘"),
+    ]
+
+
+def render_terminal(
+    audits: dict[str, ComputerAudit], include_flatpaks: bool = True
+) -> str:
+    homebrew_headers, homebrew_data = homebrew_rows(audits)
+    rpm_headers, rpm_data = layered_rpm_rows(audits)
+
+    lines: list[str] = [
+        "Package audit",
+        "",
+        "Packages installed outside ptinopedila's managed package sets.",
+        "",
+        "Homebrew",
+        *render_terminal_table(homebrew_headers, homebrew_data, 2),
+    ]
+
+    if include_flatpaks:
+        flatpak_headers, flatpak_data = flatpak_rows(audits)
+        lines.extend(
+            [
+                "",
+                "Flatpaks",
+                *render_terminal_table(flatpak_headers, flatpak_data, 2),
+            ]
+        )
+
+    if rpm_data:
+        lines.extend(
+            [
+                "",
+                "Layered RPMs",
+                LAYERING_WARNING,
+                *render_terminal_table(rpm_headers, rpm_data, 1),
+            ]
+        )
+    return "\n".join(lines) + "\n"
+
+
+def markdown_cell(value: str) -> str:
+    return value.replace("|", "\\|")
+
+
+def render_markdown_table(headers: list[str], rows: list[list[str]]) -> list[str]:
+    if not rows:
+        return ["None found."]
+
+    escaped_headers: list[str] = [markdown_cell(header) for header in headers]
+    lines: list[str] = [
+        f"| {' | '.join(escaped_headers)} |",
+        f"| {' | '.join('---' for _ in headers)} |",
+    ]
+    lines.extend(
+        f"| {' | '.join(markdown_cell(cell) for cell in row)} |"
+        for row in rows
+    )
+    return lines
+
+
+def render_markdown(
+    audits: dict[str, ComputerAudit], include_flatpaks: bool = True
+) -> str:
+    homebrew_headers, homebrew_data = homebrew_rows(audits)
+    rpm_headers, rpm_data = layered_rpm_rows(audits)
+
+    lines: list[str] = [
+        "# Package audit",
+        "",
+        "<!-- Generated by ujust package-audit. -->",
+        "",
+        "Packages installed outside ptinopedila's managed package sets.",
+        "",
+        "## Homebrew",
+        "",
+        *render_markdown_table(homebrew_headers, homebrew_data),
+    ]
+
+    if include_flatpaks:
+        flatpak_headers, flatpak_data = flatpak_rows(audits)
+        lines.extend(
+            [
+                "",
+                "## Flatpaks",
+                "",
+                *render_markdown_table(flatpak_headers, flatpak_data),
+            ]
+        )
+
+    if rpm_data:
+        lines.extend(
+            [
+                "",
+                "## Layered RPMs",
+                "",
+                LAYERING_WARNING,
+                "",
+                *render_markdown_table(rpm_headers, rpm_data),
+            ]
+        )
+    return "\n".join(lines) + "\n"
+
+
+def parse_arguments(arguments: list[str] | None = None) -> argparse.Namespace:
+    config_path: Path = default_config_path()
+    parser = argparse.ArgumentParser(
+        description=__doc__,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog=f"""
+Report contents:
+  Homebrew     Formulae and casks absent from the image Brewfiles.
+  Flatpaks     Applications absent from the managed manifest. The Scope column
+               distinguishes --user and --system Flatpaks. Runtimes and
+               extensions are excluded. This section is skipped when the
+               managed manifest is unavailable.
+  Layered RPMs Packages requested on the booted rpm-ostree deployment.
+               Ptinopedila does not support package layering.
+
+Remote computers:
+  Add SSH targets and table labels to {config_path}:
+
+    [remotes]
+    desk = "Desktop"
+
+  Each key is an SSH host or alias. Keep addresses, users, and SSH options in
+  ~/.ssh/config. The audit checks only the local computer when this file does
+  not exist. An unreachable remote prints a warning and does not stop the
+  local audit.
+
+Output:
+  The default output is a formatted terminal report. --save writes Markdown
+  to ./package-audit.md. Use --output with --save to select another path.
+""",
+    )
+    parser.add_argument(
+        "--config",
+        type=Path,
+        default=config_path,
+        metavar="PATH",
+        help="read remote computers from PATH",
+    )
+    parser.add_argument(
+        "--save",
+        action="store_true",
+        help="save the report as Markdown",
+    )
+    parser.add_argument(
+        "--output",
+        type=Path,
+        metavar="PATH",
+        help=f"write Markdown to PATH instead of ./{DEFAULT_OUTPUT_NAME}",
+    )
+    parsed: argparse.Namespace = parser.parse_args(arguments)
+    if parsed.output is not None and not parsed.save:
+        parser.error("--output requires --save")
+    return parsed
+
+
+def print_command_stderr(error: subprocess.CalledProcessError) -> None:
+    if error.stderr:
+        print(error.stderr.strip(), file=sys.stderr)
+
+
+def main(arguments: list[str] | None = None) -> int:
+    try:
+        args: argparse.Namespace = parse_arguments(arguments)
+        remotes: dict[str, str] = load_remotes(args.config)
+        managed_homebrew: set[HomebrewPackage] = read_managed_homebrew()
+        managed_flatpaks: set[FlatpakApplication] | None = (
+            read_managed_flatpaks()
+        )
+        include_flatpaks: bool = managed_flatpaks is not None
+        if not include_flatpaks:
+            print(
+                "warning: skipping Flatpak audit because the managed "
+                f"manifest does not exist: {MANAGED_FLATPAKS_FILE}",
+                file=sys.stderr,
+            )
+        audits: dict[str, ComputerAudit] = {}
+
+        for ssh_target, label in remotes.items():
+            try:
+                audits[label] = audit_computer(
+                    ssh_target, managed_homebrew, managed_flatpaks
+                )
+            except (OSError, RuntimeError, subprocess.CalledProcessError) as error:
+                print(
+                    f"warning: could not audit {label} ({ssh_target}): {error}",
+                    file=sys.stderr,
+                )
+                if isinstance(error, subprocess.CalledProcessError):
+                    print_command_stderr(error)
+
+        audits[LOCAL_PC_NAME] = audit_computer(
+            None, managed_homebrew, managed_flatpaks
+        )
+
+        if args.save:
+            output_path: Path = args.output or Path.cwd() / DEFAULT_OUTPUT_NAME
+            output_path.write_text(
+                render_markdown(audits, include_flatpaks), encoding="utf-8"
+            )
+            print(f"Updated {output_path}")
+        else:
+            print(render_terminal(audits, include_flatpaks), end="")
+    except (OSError, RuntimeError, subprocess.CalledProcessError) as error:
+        print(f"error: {error}", file=sys.stderr)
+        if isinstance(error, subprocess.CalledProcessError):
+            print_command_stderr(error)
+        return 1
+
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

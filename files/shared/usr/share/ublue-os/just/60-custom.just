@@ -31,6 +31,35 @@ install-ptinopedila-brew:
     echo "Ptinopedila Homebrew bundles installed."
     echo "Open a new terminal if newly installed commands are not yet on PATH."
 
+# Report unmanaged Homebrew packages, Flatpaks, and layered RPMs.
+[arg('config', long='config')]
+[arg('help', long='help', short='h', value='true')]
+[arg('output', long='output')]
+[arg('save', long='save', value='true')]
+[group('System')]
+[positional-arguments]
+package-audit save="false" output="" config="" help="false":
+    #!/usr/bin/env bash
+    set -euo pipefail
+
+    AUDITOR="${PTINOPEDILA_PACKAGE_AUDITOR:-/usr/libexec/ptinopedila/package-audit}"
+    ARGS=()
+
+    if [[ $1 == "true" ]]; then
+        ARGS+=(--save)
+    fi
+    if [[ -n $2 ]]; then
+        ARGS+=(--output "$2")
+    fi
+    if [[ -n $3 ]]; then
+        ARGS+=(--config "$3")
+    fi
+    if [[ $4 == "true" ]]; then
+        ARGS+=(--help)
+    fi
+
+    exec "$AUDITOR" "${ARGS[@]}"
+
 # Install a bare dotfiles repository into the current user's home directory.
 [group('Setup')]
 install-dotfiles source second="" third="":

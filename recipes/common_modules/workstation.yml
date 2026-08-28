@@ -104,3 +104,8 @@ modules:
           - io.podman_desktop.PodmanDesktop
           - io.github.getnf.embellish
           - me.iepure.devtoolbox
+
+  # Record the compiled default-flatpaks configuration for package-audit.
+  - type: script
+    scripts:
+      - build-managed-flatpak-list.sh

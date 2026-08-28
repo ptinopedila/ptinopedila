@@ -31,12 +31,11 @@ jobs:
         uses: extractions/setup-just@v4
 
       - name: Check shell syntax
-        run: >-
-          bash -n
-          files/scripts/*.sh
-          files/scripts/secureblue/*.sh
-          files/shared/usr/libexec/ptinopedila/*
-          tests/*.sh
+        run: |
+          bash -n files/scripts/*.sh files/scripts/secureblue/*.sh tests/*.sh
+          find files/shared/usr/libexec/ptinopedila \
+            -maxdepth 1 -type f ! -name package-audit \
+            -exec bash -n {} +
 
       - name: Check just formatting
         run: just --fmt --check --unstable --justfile files/shared/usr/share/ublue-os/just/60-custom.just
@@ -54,6 +53,8 @@ jobs:
           tests/install-languagetool.sh
           tests/configure-latex.sh
           tests/remove-inherited-ujust-recipes.sh
+          tests/build-managed-flatpak-list.sh
+          python3 tests/package-audit.py
 
   bluebuild:
     name: Build Custom Image

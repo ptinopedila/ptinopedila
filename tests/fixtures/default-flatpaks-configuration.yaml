@@ -1,0 +1,10 @@
+- notify: false
+  scope: system
+  install:
+  - org.example.SystemApp
+  - org.example.SharedApp
+- notify: false
+  scope: user
+  install:
+  - org.example.UserApp
+  - org.example.SharedApp
