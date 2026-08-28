@@ -1,0 +1,35 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+usage() {
+    cat <<'EOF'
+Usage: office-to-pdf INPUT [OUTPUT_DIRECTORY]
+
+Convert an office document to PDF with the LibreOffice Flatpak. The output
+directory defaults to the input file's directory.
+EOF
+}
+
+if (( $# < 1 || $# > 2 )); then
+    usage >&2
+    exit 2
+fi
+
+input_path=$(realpath -- "$1")
+if [[ ! -f $input_path ]]; then
+    echo "Input file does not exist: $input_path" >&2
+    exit 1
+fi
+
+output_directory=$(realpath -- "${2:-$(dirname -- "$input_path")}")
+if [[ ! -d $output_directory ]]; then
+    echo "Output directory does not exist: $output_directory" >&2
+    exit 1
+fi
+
+exec flatpak run org.libreoffice.LibreOffice \
+    --headless \
+    --convert-to pdf \
+    --outdir "$output_directory" \
+    "$input_path"
