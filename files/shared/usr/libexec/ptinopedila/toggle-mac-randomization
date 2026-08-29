@@ -1,0 +1,57 @@
+#!/usr/bin/env bash
+
+# SPDX-FileCopyrightText: Copyright 2025-2026 The Secureblue Authors
+#
+# SPDX-License-Identifier: Apache-2.0
+
+set -euo pipefail
+
+readonly config="${PTINOPEDILA_MAC_RANDOMIZATION_CONFIG:-/etc/NetworkManager/conf.d/90-ptinopedila-mac-randomization.conf}"
+readonly legacy_config="${PTINOPEDILA_MAC_RANDOMIZATION_LEGACY_CONFIG:-/etc/NetworkManager/conf.d/rand_mac.conf}"
+readonly systemctl_command="${PTINOPEDILA_SYSTEMCTL:-systemctl}"
+
+if (( $# != 0 )); then
+    echo "Usage: ${0##*/}" >&2
+    exit 2
+fi
+
+if [[ -e $config || -e $legacy_config ]]; then
+    rm -f -- "$config" "$legacy_config"
+    "$systemctl_command" restart NetworkManager
+    echo "Local MAC override removed. Ptinopedila's stable image default now applies."
+    exit 0
+fi
+
+cat <<'EOF'
+MAC randomization can be stable, with the same generated address used for each
+network, or per-connection, with a new Wi-Fi address on every connection.
+EOF
+
+randomization_choice=""
+read -rp "Use per-connection Wi-Fi MAC randomization? [y/N] " randomization_choice
+
+if [[ $randomization_choice == [Yy]* ]]; then
+    randomization_level="random"
+    echo "Selected state: per-connection"
+else
+    randomization_level="stable"
+    echo "Selected state: per-network (stable)"
+fi
+
+temporary_config=$(mktemp "${config}.XXXXXXXX")
+trap 'rm -f -- "$temporary_config"' EXIT
+
+cat > "$temporary_config" <<EOF
+[device-mac-randomization]
+# "yes" is already the default for scanning.
+wifi.scan-rand-mac-address=yes
+
+[connection-mac-randomization]
+ethernet.cloned-mac-address=stable
+wifi.cloned-mac-address=${randomization_level}
+EOF
+
+chmod 0644 "$temporary_config"
+mv -f -- "$temporary_config" "$config"
+"$systemctl_command" restart NetworkManager
+echo "Local MAC override enabled."

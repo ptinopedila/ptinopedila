@@ -239,6 +239,14 @@ toggle-bluetooth-on-boot:
 
     exec "${TOGGLER}"
 
+# Toggle stable or per-connection MAC randomization for Ethernet and Wi-Fi.
+[group('System')]
+toggle-mac-randomization:
+    #!/usr/bin/env bash
+    set -euo pipefail
+
+    exec sudo /usr/libexec/ptinopedila/toggle-mac-randomization
+
 # Enable CUPS and open the IPP ports in the persistent firewall configuration.
 [confirm("Enable CUPS and open its firewall ports?")]
 enable-cups:
