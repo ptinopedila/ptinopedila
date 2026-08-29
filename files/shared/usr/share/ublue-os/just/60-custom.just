@@ -253,15 +253,15 @@ enable-cups:
     sudo firewall-cmd --permanent --add-port=631/tcp
     sudo firewall-cmd --permanent --add-port=631/udp
     sudo firewall-cmd --reload
-    sudo systemctl unmask cups.service cups.socket
-    sudo systemctl enable --now cups.service cups.socket
+    sudo systemctl unmask cups.service cups.socket cups.path
+    sudo systemctl enable --now cups.service cups.socket cups.path
     echo "CUPS enabled. Automatic network-printer discovery remains disabled."
 
 # Disable CUPS and reverse the firewall changes made by `ujust enable-cups`.
 [confirm("Disable CUPS and remove its firewall rules?")]
 disable-cups:
-    sudo systemctl disable --now cups.service cups.socket
-    sudo systemctl mask --now cups.service cups.socket cups-browsed.service
+    sudo systemctl disable --now cups.service cups.socket cups.path
+    sudo systemctl mask --now cups.service cups.socket cups.path cups-browsed.service
     sudo firewall-cmd --permanent --remove-port=631/tcp
     sudo firewall-cmd --permanent --remove-port=631/udp
     sudo firewall-cmd --reload

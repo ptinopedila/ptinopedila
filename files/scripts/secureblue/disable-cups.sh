@@ -11,6 +11,9 @@ echo "Disabling print services"
 systemctl disable cups.socket
 systemctl mask cups.socket
 
+systemctl disable cups.path
+systemctl mask cups.path
+
 systemctl disable cups.service
 systemctl mask cups.service
 
