@@ -229,6 +229,16 @@ toggle-exitnode action="":
     fi
     exec "${TOGGLER}"
 
+# Toggle Bluetooth on boot, which can reduce idle laptop power use when disabled.
+[group('System')]
+toggle-bluetooth-on-boot:
+    #!/usr/bin/env bash
+    set -euo pipefail
+
+    TOGGLER="${PTINOPEDILA_BLUETOOTH_TOGGLER:-/usr/libexec/ptinopedila/toggle-bluetooth-on-boot}"
+
+    exec "${TOGGLER}"
+
 # Enable CUPS and open the IPP ports in the persistent firewall configuration.
 [confirm("Enable CUPS and open its firewall ports?")]
 enable-cups:

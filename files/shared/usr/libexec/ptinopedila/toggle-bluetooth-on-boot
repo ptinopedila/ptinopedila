@@ -1,0 +1,99 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+readonly bluetooth_config="${PTINOPEDILA_BLUETOOTH_CONFIG:-/etc/bluetooth/main.conf}"
+
+if (( $# != 0 )); then
+    echo "Usage: ${0##*/}" >&2
+    exit 2
+fi
+
+if [[ ! -f $bluetooth_config ]]; then
+    echo "Bluetooth configuration not found: $bluetooth_config" >&2
+    exit 1
+fi
+
+current_value=$(
+    awk '
+        /^\[Policy\][[:space:]]*$/ {
+            in_policy = 1
+            next
+        }
+        /^\[[^]]+\][[:space:]]*$/ {
+            in_policy = 0
+        }
+        in_policy && /^[[:space:]]*AutoEnable[[:space:]]*=/ {
+            value = $0
+            sub(/^[^=]*=[[:space:]]*/, "", value)
+            sub(/[[:space:]]*([#;].*)?$/, "", value)
+            print tolower(value)
+            exit
+        }
+    ' "$bluetooth_config"
+)
+
+case "${current_value:-true}" in
+    true) new_value=false ;;
+    false) new_value=true ;;
+    *)
+        echo "Invalid AutoEnable value in $bluetooth_config: $current_value" >&2
+        exit 1
+        ;;
+esac
+
+temporary_config=$(mktemp "${TMPDIR:-/tmp}/ptinopedila-bluetooth.XXXXXXXX")
+trap 'rm -f -- "$temporary_config"' EXIT
+
+awk -v new_value="$new_value" '
+    function write_setting() {
+        if (!setting_written) {
+            print "AutoEnable=" new_value
+            setting_written = 1
+        }
+    }
+
+    /^\[Policy\][[:space:]]*$/ {
+        policy_found = 1
+        in_policy = 1
+        print
+        next
+    }
+
+    /^\[[^]]+\][[:space:]]*$/ {
+        if (in_policy) {
+            write_setting()
+            in_policy = 0
+        }
+        print
+        next
+    }
+
+    in_policy && /^[[:space:]]*#?[[:space:]]*AutoEnable[[:space:]]*=/ {
+        write_setting()
+        next
+    }
+
+    { print }
+
+    END {
+        if (in_policy) {
+            write_setting()
+        } else if (!policy_found) {
+            print ""
+            print "[Policy]"
+            write_setting()
+        }
+    }
+' "$bluetooth_config" > "$temporary_config"
+
+sudo cp -- "$temporary_config" "$bluetooth_config"
+
+if [[ $new_value == false ]]; then
+    cat <<'EOF'
+Bluetooth will start off after future boots.
+You can still turn it on from GNOME Settings when needed.
+EOF
+else
+    echo "Bluetooth will start on automatically after future boots."
+fi
