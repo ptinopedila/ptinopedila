@@ -119,6 +119,38 @@ install-r-vscode:
 
     exec "${INSTALLER}"
 
+# Install R, RStudio, and Positron together in an experimental Distrobox.
+[arg('accept_positron_license', long='accept-positron-license', value='true')]
+[group('Setup')]
+[positional-arguments]
+install-r-workbench accept_positron_license="false":
+    #!/usr/bin/env bash
+    set -euo pipefail
+
+    INSTALLER="${PTINOPEDILA_R_WORKBENCH_INSTALLER:-/usr/libexec/ptinopedila/install-r-workbench}"
+    ARGS=()
+    if [[ $1 == "true" ]]; then
+        ARGS+=(--accept-positron-license)
+    fi
+
+    exec "${INSTALLER}" "${ARGS[@]}"
+
+# Upgrade the experimental R workbench and apply tracked IDE releases.
+[arg('accept_positron_license', long='accept-positron-license', value='true')]
+[group('System')]
+[positional-arguments]
+update-r-workbench accept_positron_license="false":
+    #!/usr/bin/env bash
+    set -euo pipefail
+
+    INSTALLER="${PTINOPEDILA_R_WORKBENCH_INSTALLER:-/usr/libexec/ptinopedila/install-r-workbench}"
+    ARGS=(--update)
+    if [[ $1 == "true" ]]; then
+        ARGS+=(--accept-positron-license)
+    fi
+
+    exec "${INSTALLER}" "${ARGS[@]}"
+
 # Install a local LanguageTool server with the shared English n-gram model.
 [arg('no_service', long='no-service', value='true')]
 [arg('port', long='port')]

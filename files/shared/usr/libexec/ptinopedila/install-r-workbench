@@ -1,0 +1,163 @@
+#!/usr/bin/env bash
+
+set -Eeuo pipefail
+umask 077
+
+readonly container_name="${PTINOPEDILA_R_WORKBENCH_CONTAINER:-r-workbench}"
+readonly host_versions_file="${PTINOPEDILA_R_WORKBENCH_VERSIONS:-/usr/share/ptinopedila/r-workbench-versions.conf}"
+readonly container_versions_file="${PTINOPEDILA_R_WORKBENCH_CONTAINER_VERSIONS:-/run/host/usr/share/ptinopedila/r-workbench-versions.conf}"
+readonly setup_program="${PTINOPEDILA_R_WORKBENCH_SETUP:-/run/host/usr/libexec/ptinopedila/setup-r-workbench}"
+readonly state_directory="${XDG_STATE_HOME:-$HOME/.local/state}/ptinopedila/r-workbench"
+readonly license_marker="$state_directory/positron-license-accepted"
+readonly image_marker="$state_directory/container-image"
+
+accept_positron_license=false
+update_container=false
+
+usage() {
+    cat <<EOF
+Usage: ${0##*/} [--accept-positron-license] [--update] [--help]
+
+Create or update an Ubuntu Distrobox with R, RStudio, and Positron.
+
+Options:
+      --accept-positron-license  Record acceptance without an interactive prompt
+      --update                   Upgrade the container before refreshing the workbench
+  -h, --help                     Show this help
+EOF
+}
+
+while (( $# > 0 )); do
+    case "$1" in
+        --accept-positron-license)
+            accept_positron_license=true
+            ;;
+        --update)
+            update_container=true
+            ;;
+        -h|--help)
+            usage
+            exit 0
+            ;;
+        *)
+            echo "Unknown argument: $1" >&2
+            usage >&2
+            exit 2
+            ;;
+    esac
+    shift
+done
+
+if (( EUID == 0 )); then
+    echo "Run this installer as your ordinary user, without sudo." >&2
+    exit 1
+fi
+
+if [[ ! -r $host_versions_file ]]; then
+    echo "R workbench version file not found: $host_versions_file" >&2
+    exit 1
+fi
+
+# The image owns this file. It contains only release records maintained in this
+# repository, so sourcing it avoids duplicating those records in two helpers.
+# shellcheck disable=SC1090
+source "$host_versions_file"
+
+: "${R_WORKBENCH_IMAGE:?R_WORKBENCH_IMAGE is missing from the version file}"
+: "${POSITRON_LICENSE_URL:?POSITRON_LICENSE_URL is missing from the version file}"
+: "${POSITRON_PRIVACY_URL:?POSITRON_PRIVACY_URL is missing from the version file}"
+
+if [[ -n ${PTINOPEDILA_DISTROBOX_COMMAND:-} ]]; then
+    distrobox_command=$PTINOPEDILA_DISTROBOX_COMMAND
+elif command -v distrobox >/dev/null 2>&1; then
+    distrobox_command=$(command -v distrobox)
+else
+    echo "Distrobox is required for the R workbench." >&2
+    exit 1
+fi
+
+if [[ ! -x $distrobox_command ]]; then
+    echo "Distrobox command is not executable: $distrobox_command" >&2
+    exit 1
+fi
+
+mkdir -p "$state_directory"
+if [[ ! -f $license_marker ]]; then
+    if [[ $accept_positron_license == false ]]; then
+        if [[ ! -t 0 ]]; then
+            echo "Review $POSITRON_LICENSE_URL and $POSITRON_PRIVACY_URL, then rerun with --accept-positron-license." >&2
+            exit 1
+        fi
+
+        printf 'Positron requires acceptance of its license and privacy terms:\n  %s\n  %s\n\nType "accept" to continue: ' \
+            "$POSITRON_LICENSE_URL" "$POSITRON_PRIVACY_URL"
+        read -r response
+        if [[ $response != accept ]]; then
+            echo "Positron license was not accepted; no container changes were made." >&2
+            exit 1
+        fi
+    fi
+    printf '%s\n%s\n' "$POSITRON_LICENSE_URL" "$POSITRON_PRIVACY_URL" > "$license_marker"
+fi
+
+container_exists() {
+    local container_list
+
+    if ! container_list=$("$distrobox_command" list --no-color); then
+        echo "Could not list existing Distrobox containers." >&2
+        exit 1
+    fi
+
+    awk -F '|' -v target="$container_name" '
+        NR > 1 {
+            name = $2
+            gsub(/^[[:space:]]+|[[:space:]]+$/, "", name)
+            if (name == target) found = 1
+        }
+        END { exit(found ? 0 : 1) }
+    ' <<< "$container_list"
+}
+
+if container_exists; then
+    if [[ ! -f $image_marker ]]; then
+        echo "$container_name exists but was not recorded as a Ptinopedila-managed workbench." >&2
+        echo "Rename or remove that container before running this recipe." >&2
+        exit 1
+    fi
+    recorded_image=$(<"$image_marker")
+    if [[ $recorded_image != "$R_WORKBENCH_IMAGE" ]]; then
+        echo "$container_name uses the recorded base image $recorded_image." >&2
+        echo "The current recipe expects $R_WORKBENCH_IMAGE." >&2
+        echo "Recreate the container for this Ubuntu release change; it will not be replaced automatically." >&2
+        exit 1
+    fi
+    echo "Using existing Distrobox: $container_name"
+else
+    echo "Creating $container_name from $R_WORKBENCH_IMAGE..."
+    "$distrobox_command" create \
+        --yes \
+        --name "$container_name" \
+        --image "$R_WORKBENCH_IMAGE"
+    printf '%s\n' "$R_WORKBENCH_IMAGE" > "$image_marker"
+fi
+
+if [[ $update_container == true ]]; then
+    echo "Upgrading packages in $container_name..."
+    "$distrobox_command" upgrade "$container_name"
+fi
+
+echo "Installing the tracked R workbench components..."
+"$distrobox_command" enter \
+    --name "$container_name" \
+    --no-tty \
+    -- \
+    env PTINOPEDILA_R_WORKBENCH_VERSIONS="$container_versions_file" \
+    "$setup_program"
+
+cat <<EOF
+
+The experimental R workbench is ready.
+Launch RStudio or Positron from the applications menu.
+Rerun "ujust update-r-workbench" after a Ptinopedila update to apply tracked
+IDE releases and upgrade the Ubuntu container.
+EOF

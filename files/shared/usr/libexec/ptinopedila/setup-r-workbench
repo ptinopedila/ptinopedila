@@ -1,0 +1,244 @@
+#!/usr/bin/env bash
+
+set -Eeuo pipefail
+umask 077
+
+readonly versions_file="${PTINOPEDILA_R_WORKBENCH_VERSIONS:-/run/host/usr/share/ptinopedila/r-workbench-versions.conf}"
+readonly renviron_site="${PTINOPEDILA_R_WORKBENCH_RENVIRON_SITE:-/etc/R/Renviron.site}"
+readonly cran_keyring="${PTINOPEDILA_R_WORKBENCH_CRAN_KEYRING:-/etc/apt/keyrings/cran-ubuntu.asc}"
+readonly cran_source="${PTINOPEDILA_R_WORKBENCH_CRAN_SOURCE:-/etc/apt/sources.list.d/cran-r.list}"
+readonly shared_library='${HOME}/.local/share/ptinopedila/r-workbench/library/%v'
+readonly renv_cache='${HOME}/.cache/ptinopedila/r-workbench/renv'
+readonly apt_packages=(
+    build-essential
+    ca-certificates
+    cmake
+    curl
+    gfortran
+    git
+    libcurl4-openssl-dev
+    libfontconfig1-dev
+    libfreetype6-dev
+    libfribidi-dev
+    libgdal-dev
+    libgeos-dev
+    libgit2-dev
+    libglpk-dev
+    libharfbuzz-dev
+    libicu-dev
+    libjpeg-dev
+    libpng-dev
+    libproj-dev
+    libsqlite3-dev
+    libssl-dev
+    libtiff-dev
+    libudunits2-dev
+    libxml2-dev
+    make
+    r-base
+    r-base-dev
+)
+
+if (( EUID == 0 )); then
+    echo "Run this setup inside Distrobox as your ordinary user." >&2
+    exit 1
+fi
+
+if [[ ! -r $versions_file ]]; then
+    echo "R workbench version file not found inside the container: $versions_file" >&2
+    exit 1
+fi
+
+# shellcheck disable=SC1090
+source "$versions_file"
+
+for variable_name in \
+    CRAN_UBUNTU_SUITE CRAN_SIGNING_KEY_URL CRAN_SIGNING_KEY_FINGERPRINT \
+    RSTUDIO_DEBIAN_VERSION \
+    RSTUDIO_AMD64_FILENAME RSTUDIO_AMD64_URL RSTUDIO_AMD64_SHA256 \
+    RSTUDIO_ARM64_FILENAME RSTUDIO_ARM64_URL RSTUDIO_ARM64_SHA256 \
+    POSITRON_AMD64_DEBIAN_VERSION \
+    POSITRON_AMD64_FILENAME POSITRON_AMD64_URL POSITRON_AMD64_SHA256 \
+    POSITRON_ARM64_DEBIAN_VERSION \
+    POSITRON_ARM64_FILENAME POSITRON_ARM64_URL POSITRON_ARM64_SHA256; do
+    if [[ -z ${!variable_name:-} ]]; then
+        echo "$variable_name is missing from $versions_file" >&2
+        exit 1
+    fi
+done
+
+container_architecture=$(dpkg --print-architecture)
+case "$container_architecture" in
+    amd64)
+        rstudio_filename=$RSTUDIO_AMD64_FILENAME
+        rstudio_url=$RSTUDIO_AMD64_URL
+        rstudio_sha256=$RSTUDIO_AMD64_SHA256
+        positron_debian_version=$POSITRON_AMD64_DEBIAN_VERSION
+        positron_filename=$POSITRON_AMD64_FILENAME
+        positron_url=$POSITRON_AMD64_URL
+        positron_sha256=$POSITRON_AMD64_SHA256
+        ;;
+    arm64)
+        rstudio_filename=$RSTUDIO_ARM64_FILENAME
+        rstudio_url=$RSTUDIO_ARM64_URL
+        rstudio_sha256=$RSTUDIO_ARM64_SHA256
+        positron_debian_version=$POSITRON_ARM64_DEBIAN_VERSION
+        positron_filename=$POSITRON_ARM64_FILENAME
+        positron_url=$POSITRON_ARM64_URL
+        positron_sha256=$POSITRON_ARM64_SHA256
+        ;;
+    *)
+        echo "The R workbench does not support the container architecture: $container_architecture" >&2
+        exit 1
+        ;;
+esac
+
+for required_command in apt-get awk dpkg dpkg-query env grep install mkdir mktemp mv sha256sum sudo tee; do
+    if ! command -v "$required_command" >/dev/null 2>&1; then
+        echo "Required command not found inside the container: $required_command" >&2
+        exit 1
+    fi
+done
+
+temporary_directory=$(mktemp -d "${TMPDIR:-/tmp}/ptinopedila-r-workbench.XXXXXXXX")
+disabled_cran_source=
+cleanup() {
+    if [[ -n $disabled_cran_source ]] && [[ -f $disabled_cran_source ]]; then
+        sudo mv -- "$disabled_cran_source" "$cran_source" || true
+    fi
+    rm -rf -- "$temporary_directory"
+}
+trap cleanup EXIT
+
+echo "Preparing the official CRAN repository..."
+if [[ -f $cran_source ]]; then
+    disabled_cran_source="$temporary_directory/cran-r.list.disabled"
+    sudo mv -- "$cran_source" "$disabled_cran_source"
+fi
+sudo env DEBIAN_FRONTEND=noninteractive apt-get update
+sudo env DEBIAN_FRONTEND=noninteractive apt-get install --yes ca-certificates curl gnupg
+
+for required_command in curl distrobox-export gpg; do
+    if ! command -v "$required_command" >/dev/null 2>&1; then
+        echo "Required command not found inside the container: $required_command" >&2
+        exit 1
+    fi
+done
+
+cran_key_fingerprint() {
+    gpg --show-keys --with-colons "$1" 2>/dev/null | \
+        awk -F ':' '$1 == "fpr" { print $10; exit }'
+}
+
+if [[ ! -f $cran_keyring ]] || \
+    [[ $(cran_key_fingerprint "$cran_keyring") != "$CRAN_SIGNING_KEY_FINGERPRINT" ]]; then
+    downloaded_key="$temporary_directory/cran-ubuntu.asc"
+    curl --fail --location --retry 3 --output "$downloaded_key" "$CRAN_SIGNING_KEY_URL"
+    if [[ $(cran_key_fingerprint "$downloaded_key") != "$CRAN_SIGNING_KEY_FINGERPRINT" ]]; then
+        echo "The downloaded CRAN signing key has an unexpected fingerprint." >&2
+        exit 1
+    fi
+    sudo mkdir -p "${cran_keyring%/*}"
+    sudo install --mode 0644 "$downloaded_key" "$cran_keyring"
+fi
+
+cran_source_line="deb [signed-by=$cran_keyring] https://cloud.r-project.org/bin/linux/ubuntu $CRAN_UBUNTU_SUITE/"
+if [[ ! -f $cran_source ]] || \
+    ! grep --fixed-strings --line-regexp --quiet "$cran_source_line" "$cran_source"; then
+    sudo mkdir -p "${cran_source%/*}"
+    printf '%s\n' "$cran_source_line" | sudo tee "$cran_source" >/dev/null
+fi
+disabled_cran_source=
+
+echo "Installing current R, build tools, and common native package dependencies..."
+sudo env DEBIAN_FRONTEND=noninteractive apt-get update
+sudo env DEBIAN_FRONTEND=noninteractive apt-get install --yes "${apt_packages[@]}"
+
+if ! command -v R >/dev/null 2>&1; then
+    echo "R was not installed successfully." >&2
+    exit 1
+fi
+
+installed_version() {
+    dpkg-query --show --showformat='${Version}' "$1" 2>/dev/null || true
+}
+
+install_deb() {
+    local package_name=$1
+    local expected_version=$2
+    local filename=$3
+    local url=$4
+    local checksum=$5
+    local destination="$temporary_directory/$filename"
+
+    if [[ $(installed_version "$package_name") == "$expected_version" ]]; then
+        echo "$package_name $expected_version is already installed."
+        return
+    fi
+
+    echo "Downloading $package_name $expected_version..."
+    curl --fail --location --retry 3 --output "$destination" "$url"
+    printf '%s  %s\n' "$checksum" "$destination" | sha256sum --check --status
+    sudo env DEBIAN_FRONTEND=noninteractive apt-get install --yes "$destination"
+
+    if [[ $(installed_version "$package_name") != "$expected_version" ]]; then
+        echo "$package_name did not report the expected version after installation." >&2
+        exit 1
+    fi
+}
+
+install_deb \
+    rstudio \
+    "$RSTUDIO_DEBIAN_VERSION" \
+    "$rstudio_filename" \
+    "$rstudio_url" \
+    "$rstudio_sha256"
+install_deb \
+    positron \
+    "$positron_debian_version" \
+    "$positron_filename" \
+    "$positron_url" \
+    "$positron_sha256"
+
+sudo mkdir -p "${renviron_site%/*}"
+sudo touch "$renviron_site"
+if ! grep --fixed-strings --line-regexp --quiet "R_LIBS_USER=$shared_library" "$renviron_site"; then
+    printf '\n# Ptinopedila R workbench shared library\nR_LIBS_USER=%s\n' "$shared_library" | \
+        sudo tee --append "$renviron_site" >/dev/null
+fi
+if ! grep --fixed-strings --line-regexp --quiet "RENV_PATHS_CACHE=$renv_cache" "$renviron_site"; then
+    printf 'RENV_PATHS_CACHE=%s\n' "$renv_cache" | \
+        sudo tee --append "$renviron_site" >/dev/null
+fi
+
+echo "Creating the shared R library and installing pak and renv..."
+r_major_minor=$(R --vanilla --slave -e \
+    'cat(paste(R.version$major, sub("\\..*$", "", R.version$minor), sep = "."))')
+if [[ ! $r_major_minor =~ ^[0-9]+\.[0-9]+$ ]]; then
+    echo "R reported an unexpected major and minor version: $r_major_minor" >&2
+    exit 1
+fi
+
+shared_library_path="$HOME/.local/share/ptinopedila/r-workbench/library/$r_major_minor"
+renv_cache_path="$HOME/.cache/ptinopedila/r-workbench/renv"
+mkdir -p "$shared_library_path" "$renv_cache_path"
+
+env \
+    R_LIBS_USER="$shared_library_path" \
+    RENV_PATHS_CACHE="$renv_cache_path" \
+    R --vanilla --slave -e \
+    'user_library <- Sys.getenv("R_LIBS_USER"); .libPaths(c(user_library, .libPaths())); packages <- c("pak", "renv"); missing <- packages[!vapply(packages, requireNamespace, logical(1), quietly = TRUE, lib.loc = user_library)]; if (length(missing)) install.packages(missing, lib = user_library, repos = "https://cloud.r-project.org"); stopifnot(all(vapply(packages, requireNamespace, logical(1), quietly = TRUE, lib.loc = user_library)))'
+
+distrobox-export --app rstudio --export-label none
+distrobox-export --app positron --export-label none --extra-flags "--foreground"
+
+R --vanilla --slave -e 'stopifnot(getRversion() >= "4.2")'
+command -v rstudio >/dev/null
+command -v positron >/dev/null
+
+cat <<EOF
+
+Container setup completed.
+Shared R library: $shared_library_path
+renv cache:       $renv_cache_path
+EOF

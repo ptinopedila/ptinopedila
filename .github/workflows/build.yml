@@ -50,6 +50,7 @@ jobs:
           tests/check-optim-upstream.sh
           tests/install-dynare.sh
           tests/install-r-vscode.sh
+          tests/install-r-workbench.sh
           tests/octave-integration.sh
           tests/install-languagetool.sh
           tests/configure-latex.sh
