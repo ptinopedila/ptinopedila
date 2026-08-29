@@ -1,0 +1,310 @@
+#!/usr/bin/env bash
+
+set -Eeuo pipefail
+
+readonly latex_workshop_extension="James-Yu.latex-workshop"
+readonly ltex_plus_extension="ltex-plus.vscode-ltex-plus"
+
+usage() {
+    cat <<EOF
+Usage: ${0##*/} [OPTIONS]
+
+Configure the current LaTeX project for VS Code.
+
+Options:
+  -a, --aux-dir PATH              Auxiliary-file directory (default: build-latex)
+  -p, --pdf-dir PATH              Final-PDF base directory (default: beside each source)
+      --languagetool-host HOST    LanguageTool host to probe (default: localhost)
+      --languagetool-port PORT    LanguageTool port to probe (default: 8081)
+  -h, --help                      Show this help
+EOF
+}
+
+aux_dir="build-latex"
+pdf_dir="."
+languagetool_host="localhost"
+languagetool_port="8081"
+
+while (( $# > 0 )); do
+    case "$1" in
+        -a|--aux-dir)
+            if (( $# < 2 )); then
+                echo "Missing value for $1." >&2
+                usage >&2
+                exit 2
+            fi
+            aux_dir=$2
+            shift 2
+            ;;
+        --aux-dir=*)
+            aux_dir=${1#*=}
+            shift
+            ;;
+        -p|--pdf-dir)
+            if (( $# < 2 )); then
+                echo "Missing value for $1." >&2
+                usage >&2
+                exit 2
+            fi
+            pdf_dir=$2
+            shift 2
+            ;;
+        --pdf-dir=*)
+            pdf_dir=${1#*=}
+            shift
+            ;;
+        --languagetool-host)
+            if (( $# < 2 )); then
+                echo "Missing value for $1." >&2
+                usage >&2
+                exit 2
+            fi
+            languagetool_host=$2
+            shift 2
+            ;;
+        --languagetool-host=*)
+            languagetool_host=${1#*=}
+            shift
+            ;;
+        --languagetool-port)
+            if (( $# < 2 )); then
+                echo "Missing value for $1." >&2
+                usage >&2
+                exit 2
+            fi
+            languagetool_port=$2
+            shift 2
+            ;;
+        --languagetool-port=*)
+            languagetool_port=${1#*=}
+            shift
+            ;;
+        -h|--help)
+            usage
+            exit 0
+            ;;
+        *)
+            echo "Unknown argument: $1" >&2
+            usage >&2
+            exit 2
+            ;;
+    esac
+done
+
+preserve_mode() {
+    local destination=$1
+    local replacement=$2
+    if [[ -f $destination ]]; then
+        chmod --reference="$destination" "$replacement"
+    else
+        chmod 0644 "$replacement"
+    fi
+}
+
+for dir in "$aux_dir" "$pdf_dir"; do
+    if [[ -z $dir || $dir = /* || ! $dir =~ ^[A-Za-z0-9._/-]+$ || "/$dir/" = *"/../"* ]]; then
+        echo "LaTeX output directories must be safe, relative project paths: $dir" >&2
+        exit 1
+    fi
+done
+if [[ $aux_dir = "." ]]; then
+    echo "AUX_DIR must not be the project root." >&2
+    exit 1
+fi
+
+if [[ -z $languagetool_host ||
+      ( ! $languagetool_host =~ ^[A-Za-z0-9.-]+$ &&
+        ! $languagetool_host =~ ^\[[0-9A-Fa-f:]+\]$ ) ]]; then
+    echo "LanguageTool host must be a hostname, an IPv4 address, or a bracketed IPv6 address." >&2
+    exit 1
+fi
+if [[ ! $languagetool_port =~ ^[0-9]+$ || ${#languagetool_port} -gt 5 ]]; then
+    echo "LanguageTool port must be an integer from 1 through 65535." >&2
+    exit 1
+fi
+languagetool_port_number=$((10#$languagetool_port))
+if (( languagetool_port_number < 1 || languagetool_port_number > 65535 )); then
+    echo "LanguageTool port must be an integer from 1 through 65535." >&2
+    exit 1
+fi
+languagetool_port=$languagetool_port_number
+
+for command_name in code curl jq; do
+    if ! command -v "$command_name" >/dev/null 2>&1; then
+        echo "$command_name is required to configure LaTeX for VS Code." >&2
+        exit 1
+    fi
+done
+code_command=$(command -v code)
+
+aux_dir=${aux_dir%/}
+pdf_dir=${pdf_dir%/}
+[[ -n $pdf_dir ]] || pdf_dir="."
+
+latex_configurator="${PTINOPEDILA_LATEX_CONFIGURATOR:-/usr/libexec/ptinopedila/configure-latex}"
+"$latex_configurator" --aux-dir "$aux_dir" --pdf-dir "$pdf_dir"
+
+for command_name in latexmk chktex latexindent; do
+    if ! command -v "$command_name" >/dev/null 2>&1; then
+        echo "$command_name is missing after the LaTeX toolchain setup." >&2
+        exit 1
+    fi
+done
+
+workspace_pdf_dir="%DIR%"
+if [[ $pdf_dir != "." ]]; then
+    workspace_pdf_dir="%WORKSPACE_FOLDER%/$pdf_dir/%RELATIVE_DIR%"
+fi
+
+mkdir -p .vscode
+settings_tmp=$(mktemp .vscode/settings.json.XXXXXX)
+settings_input=".vscode/settings.json"
+if [[ ! -f $settings_input ]]; then
+    settings_input="${settings_tmp}.new"
+    printf '{}\n' > "$settings_input"
+fi
+
+languagetool_uri="http://${languagetool_host}:${languagetool_port}"
+languagetool_response=""
+if languagetool_response=$(curl \
+    --silent \
+    --show-error \
+    --fail \
+    --connect-timeout 2 \
+    --max-time 5 \
+    --data-urlencode "language=en-US" \
+    --data-urlencode "text=This is a LanguageTool connection test." \
+    "${languagetool_uri}/v2/check" 2>/dev/null) &&
+   jq --exit-status '.matches | type == "array"' \
+       >/dev/null 2>&1 <<< "$languagetool_response"; then
+    echo "LanguageTool answered at ${languagetool_uri}/v2/check."
+else
+    languagetool_uri=""
+fi
+
+if ! jq --indent 2 \
+    --arg out_dir "%WORKSPACE_FOLDER%/$aux_dir/%RELATIVE_DIR%" \
+    --arg pdf_dir "$workspace_pdf_dir" \
+    --arg tool_name "latexmk-project-config" \
+    --arg latex_workshop "$latex_workshop_extension" \
+    --arg languagetool_uri "$languagetool_uri" \
+    '
+    .["latex-workshop.latex.outDir"] = $out_dir
+    | .["latex-workshop.latex.tools"] = (
+        [{
+            "name": $tool_name,
+            "command": "latexmk",
+            "cwd": "%WORKSPACE_FOLDER%",
+            "args": [
+                "-cd",
+                "-pdf",
+                "-synctex=1",
+                "-interaction=nonstopmode",
+                "-file-line-error",
+                "-auxdir=" + $out_dir,
+                "-outdir=" + $out_dir,
+                "-out2dir=" + $pdf_dir,
+                "%DOC%"
+            ]
+        }]
+        + ((.["latex-workshop.latex.tools"] // []) | map(select(.name != $tool_name)))
+    )
+    | .["latex-workshop.latex.recipes"] = (
+        [{"name": "latexmk (project config)", "tools": [$tool_name]}]
+        + ((.["latex-workshop.latex.recipes"] // [])
+            | map(select(.name != "latexmk (project config)")))
+    )
+    | .["latex-workshop.latex.recipe.default"] = "first"
+    | .["latex-workshop.linting.chktex.enabled"] = true
+    | .["latex-workshop.linting.run"] = "onSave"
+    | .["latex-workshop.formatting.latex"] = "latexindent"
+    | .["[latex]"] = (
+        (.["[latex]"] // {})
+        + {
+            "editor.defaultFormatter": $latex_workshop,
+            "editor.formatOnSave": true
+        }
+    )
+    | if $languagetool_uri != "" then
+        .["ltex.languageToolHttpServerUri"] = $languagetool_uri
+      else
+        .
+      end
+    ' "$settings_input" > "$settings_tmp"; then
+    rm -f "$settings_tmp" "${settings_tmp}.new"
+    echo ".vscode/settings.json must contain valid JSON before it can be merged." >&2
+    exit 1
+fi
+
+if [[ -z $languagetool_uri ]]; then
+    if jq --exit-status \
+        '.["ltex.languageToolHttpServerUri"] | type == "string" and length > 0' \
+        "$settings_input" >/dev/null 2>&1; then
+        echo "LanguageTool did not answer at http://${languagetool_host}:${languagetool_port}/v2/check; the existing LTeX+ server setting was left unchanged."
+    else
+        echo "LanguageTool did not answer at http://${languagetool_host}:${languagetool_port}/v2/check; LTeX+ will use its bundled offline checker."
+    fi
+fi
+
+extensions_tmp=$(mktemp .vscode/extensions.json.XXXXXX)
+extensions_input=".vscode/extensions.json"
+if [[ ! -f $extensions_input ]]; then
+    extensions_input="${extensions_tmp}.new"
+    printf '{}\n' > "$extensions_input"
+fi
+
+if ! jq --indent 2 \
+    --arg latex_workshop "$latex_workshop_extension" \
+    --arg ltex_plus "$ltex_plus_extension" \
+    '
+    ($latex_workshop | ascii_downcase) as $latex_workshop_lower
+    | ($ltex_plus | ascii_downcase) as $ltex_plus_lower
+    | .recommendations = (
+        [$latex_workshop, $ltex_plus]
+        + ((.recommendations // []) | map(select(
+            type != "string"
+            or (ascii_downcase != $latex_workshop_lower
+                and ascii_downcase != $ltex_plus_lower)
+        )))
+    )
+    ' "$extensions_input" > "$extensions_tmp"; then
+    rm -f \
+        "$settings_tmp" "${settings_tmp}.new" \
+        "$extensions_tmp" "${extensions_tmp}.new"
+    echo ".vscode/extensions.json must contain valid JSON before it can be merged." >&2
+    exit 1
+fi
+
+installed_extensions=$($code_command --list-extensions)
+if grep --fixed-strings --ignore-case --line-regexp --quiet \
+    "valentjn.vscode-ltex" <<< "$installed_extensions"; then
+    echo \
+        "The archived valentjn.vscode-ltex extension is installed and overlaps LTeX+." \
+        "Remove it after checking your saved dictionaries and settings." >&2
+fi
+
+install_extension() {
+    local extension_id=$1
+    if grep --fixed-strings --ignore-case --line-regexp --quiet \
+        "$extension_id" <<< "$installed_extensions"; then
+        echo "VS Code extension already installed: $extension_id"
+        return
+    fi
+
+    echo "Installing VS Code extension: $extension_id"
+    "$code_command" --install-extension "$extension_id"
+    installed_extensions+=$'\n'"$extension_id"
+}
+
+install_extension "$latex_workshop_extension"
+install_extension "$ltex_plus_extension"
+
+preserve_mode .vscode/settings.json "$settings_tmp"
+mv "$settings_tmp" .vscode/settings.json
+rm -f "${settings_tmp}.new"
+
+preserve_mode .vscode/extensions.json "$extensions_tmp"
+mv "$extensions_tmp" .vscode/extensions.json
+rm -f "${extensions_tmp}.new"
+
+echo "VS Code configured for LaTeX with LaTeX Workshop and LTeX+."

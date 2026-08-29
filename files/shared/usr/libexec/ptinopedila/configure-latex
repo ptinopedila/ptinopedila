@@ -96,70 +96,15 @@ for formula in "${latex_formulae[@]}"; do
     fi
 done
 if (( ${#missing_formulae[@]} > 0 )); then
-    "$brew_command" install "${missing_formulae[@]}"
-fi
-
-if ! command -v jq >/dev/null 2>&1; then
-    echo "jq is required to merge .vscode/settings.json safely." >&2
-    exit 1
+    HOMEBREW_NO_AUTO_UPDATE=1 \
+        HOMEBREW_NO_INSTALL_UPGRADE=1 \
+        HOMEBREW_NO_INSTALLED_DEPENDENTS_CHECK=1 \
+        "$brew_command" install "${missing_formulae[@]}"
 fi
 
 aux_dir=${aux_dir%/}
 pdf_dir=${pdf_dir%/}
 [[ -n $pdf_dir ]] || pdf_dir="."
-workspace_pdf_dir="%DIR%"
-if [[ $pdf_dir != "." ]]; then
-    workspace_pdf_dir="%WORKSPACE_FOLDER%/$pdf_dir/%RELATIVE_DIR%"
-fi
-
-mkdir -p .vscode
-settings_tmp=$(mktemp .vscode/settings.json.XXXXXX)
-if [[ -f .vscode/settings.json ]]; then
-    settings_input=".vscode/settings.json"
-else
-    settings_input="${settings_tmp}.new"
-    printf '{}\n' > "$settings_input"
-fi
-
-if ! jq --indent 2 \
-    --arg out_dir "%WORKSPACE_FOLDER%/$aux_dir/%RELATIVE_DIR%" \
-    --arg pdf_dir "$workspace_pdf_dir" \
-    --arg tool_name "latexmk-project-config" \
-    '
-    .["latex-workshop.latex.outDir"] = $out_dir
-    | .["latex-workshop.latex.tools"] = (
-        [{
-            "name": $tool_name,
-            "command": "latexmk",
-            "cwd": "%WORKSPACE_FOLDER%",
-            "args": [
-                "-cd",
-                "-pdf",
-                "-synctex=1",
-                "-interaction=nonstopmode",
-                "-file-line-error",
-                "-auxdir=" + $out_dir,
-                "-outdir=" + $out_dir,
-                "-out2dir=" + $pdf_dir,
-                "%DOC%"
-            ]
-        }]
-        + ((.["latex-workshop.latex.tools"] // []) | map(select(.name != $tool_name)))
-    )
-    | .["latex-workshop.latex.recipes"] = (
-        [{"name": "latexmk (project config)", "tools": [$tool_name]}]
-        + ((.["latex-workshop.latex.recipes"] // [])
-            | map(select(.name != "latexmk (project config)")))
-    )
-    | .["latex-workshop.latex.recipe.default"] = "first"
-    ' "$settings_input" > "$settings_tmp"; then
-    rm -f "$settings_tmp" "${settings_tmp}.new"
-    echo ".vscode/settings.json must contain valid JSON before it can be merged." >&2
-    exit 1
-fi
-preserve_mode .vscode/settings.json "$settings_tmp"
-mv "$settings_tmp" .vscode/settings.json
-rm -f "${settings_tmp}.new"
 
 gitignore_begin="# >>> ptinopedila latex build >>>"
 gitignore_end="# <<< ptinopedila latex build <<<"

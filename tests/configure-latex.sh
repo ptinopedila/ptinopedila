@@ -25,6 +25,9 @@ set -euo pipefail
 if [[ $1 == list && $2 == --formula ]]; then
   grep -Fxq "$3" "$BREW_STATE" 2>/dev/null
 elif [[ $1 == install ]]; then
+  [[ ${HOMEBREW_NO_AUTO_UPDATE:-} == 1 ]]
+  [[ ${HOMEBREW_NO_INSTALL_UPGRADE:-} == 1 ]]
+  [[ ${HOMEBREW_NO_INSTALLED_DEPENDENTS_CHECK:-} == 1 ]]
   printf 'install' >> "$BREW_LOG"
   shift
   for formula in "$@"; do
@@ -53,11 +56,7 @@ run_configurator
 
 [[ $(cat "$brew_log") == "install biber latexdiff latexindent pandoc texlive" ]]
 
-jq --exit-status '
-  .["editor.tabSize"] == 4 and
-  .["latex-workshop.latex.outDir"] == "%WORKSPACE_FOLDER%/build-latex/%RELATIVE_DIR%" and
-  .["latex-workshop.latex.recipe.default"] == "first"
-' "$project_directory/.vscode/settings.json" >/dev/null
+[[ $(cat "$project_directory/.vscode/settings.json") == '{"editor.tabSize": 4}' ]]
 grep -Fxq '/existing-entry' "$project_directory/.gitignore"
 grep -Fxq '/build-latex/' "$project_directory/.gitignore"
 grep -Fxq '\$pdf_mode = 1;' "$project_directory/.latexmkrc"
@@ -76,9 +75,7 @@ second_checksum=$(sha256sum \
 [[ $(wc -l < "$brew_log") -eq 1 ]]
 
 run_configurator .latex-build output
-jq --exit-status '
-  .["latex-workshop.latex.outDir"] == "%WORKSPACE_FOLDER%/.latex-build/%RELATIVE_DIR%"
-' "$project_directory/.vscode/settings.json" >/dev/null
+[[ $(cat "$project_directory/.vscode/settings.json") == '{"editor.tabSize": 4}' ]]
 grep -Fxq '/.latex-build/' "$project_directory/.gitignore"
 grep -Fxq "\$out2_dir = 'output';" "$project_directory/.latexmkrc"
 [[ $(wc -l < "$brew_log") -eq 1 ]]

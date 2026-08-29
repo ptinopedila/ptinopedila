@@ -147,6 +147,32 @@ configure-latex aux_dir="build-latex" pdf_dir=".":
 
     exec "${CONFIGURATOR}" --aux-dir "${AUX_DIR}" --pdf-dir "${PDF_DIR}"
 
+# Configure the current LaTeX project for VS Code with LaTeX Workshop and LTeX+.
+[arg('languagetool_host', long='languagetool-host')]
+[arg('languagetool_port', long='languagetool-port')]
+[group('Development')]
+[no-cd]
+[positional-arguments]
+configure-vscode-latex aux_dir="build-latex" pdf_dir="." languagetool_host="localhost" languagetool_port="8081":
+    #!/usr/bin/env bash
+    set -euo pipefail
+
+    # Usage:
+    #   ujust configure-vscode-latex
+    #   ujust configure-vscode-latex .latex-build output
+    #   ujust configure-vscode-latex --languagetool-host=localhost --languagetool-port=8082
+    AUX_DIR={{ quote(aux_dir) }}
+    PDF_DIR={{ quote(pdf_dir) }}
+    LANGUAGETOOL_HOST={{ quote(languagetool_host) }}
+    LANGUAGETOOL_PORT={{ quote(languagetool_port) }}
+    CONFIGURATOR="${PTINOPEDILA_VSCODE_LATEX_CONFIGURATOR:-/usr/libexec/ptinopedila/configure-vscode-latex}"
+
+    exec "${CONFIGURATOR}" \
+        --aux-dir "${AUX_DIR}" \
+        --pdf-dir "${PDF_DIR}" \
+        --languagetool-host "${LANGUAGETOOL_HOST}" \
+        --languagetool-port "${LANGUAGETOOL_PORT}"
+
 # Enable or disable this PC's Tailscale exit-node advertisement.
 [group('System')]
 toggle-exitnode action="":

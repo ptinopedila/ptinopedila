@@ -52,6 +52,7 @@ jobs:
           tests/octave-integration.sh
           tests/install-languagetool.sh
           tests/configure-latex.sh
+          tests/configure-vscode-latex.sh
           tests/remove-inherited-ujust-recipes.sh
           tests/build-managed-flatpak-list.sh
           python3 tests/package-audit.py
