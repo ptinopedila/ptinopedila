@@ -48,6 +48,7 @@ Ptinopedila-specific guides:
 - [Install LanguageTool](docs/install-languagetool.md)
 - [Configure LaTeX projects](docs/configure-latex.md)
 - [Use a Ptinopedila PC as a Tailscale exit node](docs/use-tailscale-exit-node.md)
+- [Manage login lockouts](docs/manage-faillock.md)
 - [Use and customize Zsh](docs/zsh.md)
 
 ## Installation

@@ -247,6 +247,20 @@ toggle-mac-randomization:
 
     exec sudo /usr/libexec/ptinopedila/toggle-mac-randomization
 
+# Inspect, enable, or disable PAM faillock without replacing other authselect features.
+[group('System')]
+set-faillock action="status":
+    #!/usr/bin/env bash
+    set -euo pipefail
+
+    ACTION={{ quote(action) }}
+    MANAGER="${PTINOPEDILA_FAILLOCK_MANAGER:-/usr/libexec/ptinopedila/set-faillock}"
+
+    if [[ $ACTION == status ]]; then
+        exec "$MANAGER" status
+    fi
+    exec sudo "$MANAGER" "$ACTION"
+
 # Enable CUPS and open the IPP ports in the persistent firewall configuration.
 [confirm("Enable CUPS and open its firewall ports?")]
 enable-cups:

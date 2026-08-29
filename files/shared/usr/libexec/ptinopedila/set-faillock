@@ -1,0 +1,192 @@
+#!/usr/bin/env bash
+
+# SPDX-FileCopyrightText: 2026 Ptinopedila contributors
+#
+# SPDX-License-Identifier: Apache-2.0
+
+set -euo pipefail
+
+readonly authselect_command="${PTINOPEDILA_AUTHSELECT:-/usr/bin/authselect}"
+readonly system_auth="${PTINOPEDILA_FAILLOCK_SYSTEM_AUTH:-/etc/authselect/system-auth}"
+readonly password_auth="${PTINOPEDILA_FAILLOCK_PASSWORD_AUTH:-/etc/authselect/password-auth}"
+
+usage() {
+    echo "Usage: ${0##*/} on|off|status" >&2
+}
+
+feature_state() {
+    local result
+
+    set +e
+    "$authselect_command" is-feature-enabled with-faillock
+    result=$?
+    set -e
+
+    case $result in
+        0)
+            echo "enabled"
+            ;;
+        2)
+            echo "disabled"
+            ;;
+        *)
+            echo "Unable to read the authselect faillock feature state." >&2
+            return "$result"
+            ;;
+    esac
+}
+
+pam_contains_faillock() {
+    local pam_file=$1
+
+    grep -Eq \
+        '^[[:space:]]*(auth|account|password|session)[[:space:]]+.*pam_faillock\.so([[:space:]]|$)' \
+        "$pam_file"
+}
+
+validate_pam_files() {
+    local pam_file
+
+    for pam_file in "$system_auth" "$password_auth"; do
+        if [[ ! -r $pam_file ]]; then
+            echo "Effective PAM file is missing or unreadable: $pam_file" >&2
+            return 1
+        fi
+    done
+}
+
+validate_enabled() {
+    "$authselect_command" check
+    validate_pam_files
+
+    if [[ $(feature_state) != enabled ]]; then
+        echo "Authselect does not report with-faillock as enabled." >&2
+        return 1
+    fi
+    if ! pam_contains_faillock "$system_auth"; then
+        echo "Faillock is missing from $system_auth." >&2
+        return 1
+    fi
+    if ! pam_contains_faillock "$password_auth"; then
+        echo "Faillock is missing from $password_auth." >&2
+        return 1
+    fi
+}
+
+validate_disabled() {
+    "$authselect_command" check
+    validate_pam_files
+
+    if [[ $(feature_state) != disabled ]]; then
+        echo "Authselect still reports with-faillock as enabled." >&2
+        return 1
+    fi
+    if pam_contains_faillock "$system_auth" || pam_contains_faillock "$password_auth"; then
+        echo "A pam_faillock.so entry remains in the effective PAM files." >&2
+        return 1
+    fi
+}
+
+show_status() {
+    local state
+
+    echo "Current authselect configuration:"
+    "$authselect_command" current
+    state=$(feature_state)
+
+    if [[ $state == enabled ]]; then
+        validate_enabled
+        echo "Faillock is enabled and the effective PAM files are consistent."
+    else
+        validate_disabled
+        echo "Faillock is disabled and the effective PAM files are consistent."
+    fi
+}
+
+restore_backup() {
+    local backup=$1
+    local previous_state=$2
+
+    if "$authselect_command" backup-restore "$backup"; then
+        if [[ $previous_state == enabled ]]; then
+            validate_enabled
+        else
+            validate_disabled
+        fi
+        echo "The change failed validation. The previous authselect configuration was restored and verified." >&2
+    else
+        echo "The change failed validation and authselect could not restore backup $backup." >&2
+        echo "Restore it manually with: sudo authselect backup-restore $backup" >&2
+        return 1
+    fi
+}
+
+set_state() {
+    local requested_state=$1
+    local current_state
+    local authselect_action
+    local backup
+
+    echo "Current authselect configuration:"
+    "$authselect_command" current
+    "$authselect_command" check
+    current_state=$(feature_state)
+
+    if [[ $current_state == "$requested_state" ]]; then
+        if [[ $requested_state == enabled ]]; then
+            validate_enabled
+            echo "Faillock is already enabled and verified."
+        else
+            validate_disabled
+            echo "Faillock is already disabled and verified."
+        fi
+        return 0
+    fi
+
+    if [[ $requested_state == enabled ]]; then
+        authselect_action="enable-feature"
+    else
+        authselect_action="disable-feature"
+    fi
+
+    backup="ptinopedila-faillock-$(date -u +%Y%m%dT%H%M%SZ)-$$"
+    "$authselect_command" "$authselect_action" with-faillock "--backup=$backup"
+
+    if [[ $requested_state == enabled ]]; then
+        if ! validate_enabled; then
+            restore_backup "$backup" "$current_state"
+            return 1
+        fi
+        echo "Faillock enabled and verified."
+    else
+        if ! validate_disabled; then
+            restore_backup "$backup" "$current_state"
+            return 1
+        fi
+        echo "Faillock disabled and verified."
+    fi
+
+    echo "Authselect backup: $backup"
+    echo "Recovery command: sudo authselect backup-restore $backup"
+}
+
+if (( $# != 1 )); then
+    usage
+    exit 2
+fi
+
+case $1 in
+    on)
+        set_state enabled
+        ;;
+    off)
+        set_state disabled
+        ;;
+    status)
+        show_status
+        ;;
+    *)
+        usage
+        exit 2
+        ;;
+esac
