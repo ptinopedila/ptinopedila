@@ -1,0 +1,12 @@
+#compdef ujust
+
+# Temporary workaround for projectbluefin/common#907. Common must use this
+# image's 00-entry.just path when it ports ublue-os/packages#1319.
+_ujust() {
+  words=(just --justfile "/usr/share/ublue-os/just/00-entry.just" "${words[@]:1}")
+  (( CURRENT += 2 ))
+
+  _just
+}
+
+_ujust "$@"

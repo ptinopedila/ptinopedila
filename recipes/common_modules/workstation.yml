@@ -18,11 +18,12 @@ modules:
         - procinfo
         - smartmontools
         - util-linux-user
-  # Reset inherited Bluefin configuration that is incompatible with this image
+  # Handle inherited Bluefin configuration that is incompatible with this image
   - type: script
     scripts:
       - reset-brew-preinstall.sh
       - remove-inherited-ujust-recipes.sh
+      - assert-inherited-ujust-completion.sh
 
   # Shared workstation configuration
   - type: files
