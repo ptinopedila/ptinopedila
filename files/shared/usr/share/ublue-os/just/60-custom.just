@@ -109,6 +109,16 @@ install-dynare:
 
     exec "${INSTALLER}"
 
+# Install Homebrew R and Quarto and configure them for the current user's VS Code.
+[group('Setup')]
+install-r-vscode:
+    #!/usr/bin/env bash
+    set -euo pipefail
+
+    INSTALLER="${PTINOPEDILA_R_VSCODE_INSTALLER:-/usr/libexec/ptinopedila/install-r-vscode}"
+
+    exec "${INSTALLER}"
+
 # Install a local LanguageTool server with the shared English n-gram model.
 [arg('no_service', long='no-service', value='true')]
 [arg('port', long='port')]

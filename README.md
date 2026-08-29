@@ -42,6 +42,7 @@ Ptinopedila-specific guides:
 - [Install dotfiles](docs/install-dotfiles.md)
 - [Install Conda](docs/install-conda.md)
 - [Install Dynare for Octave](docs/install-dynare.md)
+- [Install R and Quarto for VS Code](docs/install-r-vscode.md)
 - [Install Julia](docs/install-julia.md)
 - [Install LanguageTool](docs/install-languagetool.md)
 - [Configure LaTeX projects](docs/configure-latex.md)

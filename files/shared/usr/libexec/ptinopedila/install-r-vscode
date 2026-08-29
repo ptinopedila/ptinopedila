@@ -1,0 +1,165 @@
+#!/usr/bin/env bash
+
+set -Eeuo pipefail
+umask 077
+
+readonly r_extension="REditorSupport.r"
+readonly quarto_extension="quarto.quarto"
+readonly r_packages=(
+    httpgd
+    jsonlite
+    knitr
+    languageserver
+    pak
+    renv
+    rmarkdown
+)
+
+usage() {
+    cat <<EOF
+Usage: ${0##*/} [--help]
+
+Install Homebrew R and Quarto, then configure the current user's VS Code.
+
+Options:
+  -h, --help  Show this help
+EOF
+}
+
+while (( $# > 0 )); do
+    case "$1" in
+        -h|--help)
+            usage
+            exit 0
+            ;;
+        *)
+            echo "Unknown argument: $1" >&2
+            usage >&2
+            exit 2
+            ;;
+    esac
+done
+
+if (( EUID == 0 )); then
+    echo "Run this installer as your ordinary user, without sudo." >&2
+    exit 1
+fi
+
+if [[ -n ${PTINOPEDILA_BREW_COMMAND:-} ]]; then
+    brew_command=$PTINOPEDILA_BREW_COMMAND
+elif command -v brew >/dev/null 2>&1; then
+    brew_command=$(command -v brew)
+elif [[ -x /home/linuxbrew/.linuxbrew/bin/brew ]]; then
+    brew_command=/home/linuxbrew/.linuxbrew/bin/brew
+elif [[ -x /var/home/linuxbrew/.linuxbrew/bin/brew ]]; then
+    brew_command=/var/home/linuxbrew/.linuxbrew/bin/brew
+else
+    echo "Homebrew is required to install R and Quarto." >&2
+    exit 1
+fi
+
+if [[ -n ${PTINOPEDILA_CODE_COMMAND:-} ]]; then
+    code_command=$PTINOPEDILA_CODE_COMMAND
+elif command -v code >/dev/null 2>&1; then
+    code_command=$(command -v code)
+else
+    echo "VS Code is required for this recipe." >&2
+    exit 1
+fi
+
+if [[ ! -x $brew_command ]]; then
+    echo "Homebrew command is not executable: $brew_command" >&2
+    exit 1
+fi
+if [[ ! -x $code_command ]]; then
+    echo "VS Code command is not executable: $code_command" >&2
+    exit 1
+fi
+
+for required_command in env grep mkdir; do
+    if ! command -v "$required_command" >/dev/null 2>&1; then
+        echo "Required command not found: $required_command" >&2
+        exit 1
+    fi
+done
+
+if "$brew_command" list --formula r >/dev/null 2>&1; then
+    echo "R is already installed with Homebrew."
+else
+    echo "Installing R with Homebrew..."
+    "$brew_command" install r
+fi
+
+if "$brew_command" list --cask quarto >/dev/null 2>&1; then
+    echo "Quarto is already installed with Homebrew."
+else
+    echo "Installing Quarto with Homebrew..."
+    "$brew_command" install --cask quarto
+fi
+
+r_prefix=$($brew_command --prefix r)
+brew_prefix=$($brew_command --prefix)
+r_command="$r_prefix/bin/R"
+quarto_command="$brew_prefix/bin/quarto"
+
+if [[ $r_prefix != /* || ! -d $r_prefix || ! -x $r_command ]]; then
+    echo "Homebrew R was not found at the expected path: $r_command" >&2
+    exit 1
+fi
+if [[ $brew_prefix != /* || ! -d $brew_prefix || ! -x $quarto_command ]]; then
+    echo "Homebrew Quarto was not found at the expected path: $quarto_command" >&2
+    exit 1
+fi
+
+r_user_library=$(
+    "$r_command" --vanilla --slave -e \
+        'paths <- strsplit(path.expand(Sys.getenv("R_LIBS_USER")), .Platform$path.sep, fixed = TRUE)[[1]]; cat(paths[[1]])'
+)
+if [[ $r_user_library != /* || $r_user_library == *$'\n'* ]]; then
+    echo "R returned an invalid user-library path: $r_user_library" >&2
+    exit 1
+fi
+mkdir -p "$r_user_library"
+
+r_package_expression='c('
+for package_name in "${r_packages[@]}"; do
+    r_package_expression+="\"$package_name\","
+done
+r_package_expression=${r_package_expression%,}
+r_package_expression+=')'
+
+echo "Installing missing shared R workflow packages..."
+env R_LIBS_USER="$r_user_library" \
+    "$r_command" --vanilla --slave -e \
+    "packages <- $r_package_expression; missing <- packages[!vapply(packages, requireNamespace, logical(1), quietly = TRUE)]; if (length(missing)) install.packages(missing, lib = Sys.getenv('R_LIBS_USER'), repos = 'https://cloud.r-project.org'); stopifnot(all(vapply(packages, requireNamespace, logical(1), quietly = TRUE)))"
+
+installed_extensions=$($code_command --list-extensions)
+install_extension() {
+    local extension_id=$1
+    if grep --fixed-strings --ignore-case --line-regexp --quiet \
+        "$extension_id" <<< "$installed_extensions"; then
+        echo "VS Code extension already installed: $extension_id"
+        return
+    fi
+
+    echo "Installing VS Code extension: $extension_id"
+    "$code_command" --install-extension "$extension_id"
+    installed_extensions+=$'\n'"$extension_id"
+}
+
+install_extension "$r_extension"
+install_extension "$quarto_extension"
+
+"$r_command" --vanilla --slave -e 'stopifnot(getRversion() >= "4.0")'
+"$quarto_command" --version >/dev/null
+
+cat <<EOF
+
+R and Quarto are ready for VS Code.
+R executable:      $r_command
+Shared R library:  $r_user_library
+VS Code extensions: $r_extension, $quarto_extension
+
+Use renv::init() inside a project when you want a project-local package library
+and lockfile.
+EOF
