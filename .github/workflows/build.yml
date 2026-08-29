@@ -61,6 +61,10 @@ jobs:
           tests/configure-latex.sh
           tests/configure-vscode-latex.sh
           tests/toggle-bluetooth-on-boot.sh
+          tests/toggle-mac-randomization.sh
+          tests/cups-recipes.sh
+          tests/secureblue-sysctl.sh
+          tests/set-faillock.sh
           tests/ujust-zsh-completion.sh
           tests/remove-inherited-ujust-recipes.sh
           tests/build-managed-flatpak-list.sh
