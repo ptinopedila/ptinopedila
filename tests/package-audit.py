@@ -79,6 +79,86 @@ class PackageAuditTests(unittest.TestCase):
             ],
         )
 
+    def test_gnome_extension_collection_tracks_enabled_state(self) -> None:
+        with (
+            patch.object(
+                self.module,
+                "command_exists",
+                return_value=True,
+            ),
+            patch.object(
+                self.module,
+                "run_lines",
+                side_effect=[
+                    {"enabled@example.com", "disabled@example.com"},
+                    {"enabled@example.com"},
+                ],
+            ) as run_lines,
+        ):
+            extensions = self.module.get_gnome_extensions("desk")
+
+        self.assertEqual(
+            extensions,
+            {
+                "disabled@example.com": False,
+                "enabled@example.com": True,
+            },
+        )
+        self.assertEqual(
+            [call.args for call in run_lines.call_args_list],
+            [
+                (["gnome-extensions", "list"], "desk"),
+                (["gnome-extensions", "list", "--enabled"], "desk"),
+            ],
+        )
+
+    def test_missing_gnome_extensions_command_returns_none(self) -> None:
+        with (
+            patch.object(
+                self.module,
+                "command_exists",
+                return_value=False,
+            ),
+            patch.object(self.module, "run_lines") as run_lines,
+        ):
+            extensions = self.module.get_gnome_extensions()
+
+        self.assertIsNone(extensions)
+        run_lines.assert_not_called()
+
+    def test_gnome_extension_rows_compare_the_fleet(self) -> None:
+        audits = {
+            "Desktop": self.module.ComputerAudit(
+                set(),
+                set(),
+                set(),
+                {
+                    "disabled@example.com": False,
+                    "enabled@example.com": True,
+                },
+            ),
+            "Laptop": self.module.ComputerAudit(
+                set(),
+                set(),
+                set(),
+                {"enabled@example.com": False},
+            ),
+            "Server": self.module.ComputerAudit(
+                set(), set(), set(), None
+            ),
+        }
+
+        headers, rows = self.module.gnome_extension_rows(audits)
+
+        self.assertEqual(headers, ["Extension", "Desktop", "Laptop", "Server"])
+        self.assertEqual(
+            rows,
+            [
+                ["disabled@example.com", "○", "", "n/a"],
+                ["enabled@example.com", "✓", "○", "n/a"],
+            ],
+        )
+
     def test_missing_managed_flatpak_manifest_returns_none(self) -> None:
         with tempfile.TemporaryDirectory() as temporary_directory:
             missing_manifest = Path(temporary_directory) / "missing.txt"
@@ -98,11 +178,19 @@ class PackageAuditTests(unittest.TestCase):
                 self.module, "get_installed_flatpaks", return_value=set()
             ) as get_installed_flatpaks,
             patch.object(self.module, "get_layered_rpms", return_value=set()),
+            patch.object(
+                self.module,
+                "get_gnome_extensions",
+                return_value={"example@example.com": True},
+            ),
         ):
             audit = self.module.audit_computer(None, set(), None)
 
         get_installed_flatpaks.assert_not_called()
         self.assertEqual(audit.flatpaks, set())
+        self.assertEqual(
+            audit.gnome_extensions, {"example@example.com": True}
+        )
 
     def test_parse_layered_rpms_uses_booted_deployment_requests(self) -> None:
         status = json.dumps(
@@ -136,11 +224,16 @@ class PackageAuditTests(unittest.TestCase):
                     ("system", "org.example.SystemApp"),
                 },
                 layered_rpms={"example-rpm"},
+                gnome_extensions={
+                    "enabled@example.com": True,
+                    "disabled@example.com": False,
+                },
             ),
             "Laptop": self.module.ComputerAudit(
                 homebrew={('brew', 'jq')},
                 flatpaks={("user", "md.obsidian.Obsidian")},
                 layered_rpms=set(),
+                gnome_extensions={"enabled@example.com": True},
             ),
         }
 
@@ -153,8 +246,15 @@ class PackageAuditTests(unittest.TestCase):
         self.assertIn("System", terminal)
         self.assertIn("Layered RPMs", terminal)
         self.assertIn("example-rpm", terminal)
+        self.assertIn("GNOME extensions", terminal)
+        self.assertIn("disabled@example.com", terminal)
+        self.assertIn("✓ enabled", terminal)
+        self.assertIn("○ installed but disabled", terminal)
         self.assertIn(
             "| Scope | Application | Desktop | Laptop |", markdown
+        )
+        self.assertIn(
+            "| Extension | Desktop | Laptop |", markdown
         )
 
     def test_reports_omit_layered_rpm_section_when_empty(self) -> None:
@@ -163,6 +263,7 @@ class PackageAuditTests(unittest.TestCase):
                 homebrew={('brew', 'jq')},
                 flatpaks=set(),
                 layered_rpms=set(),
+                gnome_extensions={},
             )
         }
 
@@ -173,12 +274,15 @@ class PackageAuditTests(unittest.TestCase):
         self.assertNotIn(self.module.LAYERING_WARNING, terminal)
         self.assertNotIn("## Layered RPMs", markdown)
         self.assertNotIn(self.module.LAYERING_WARNING, markdown)
+        self.assertNotIn("GNOME extensions", terminal)
+        self.assertNotIn("## GNOME extensions", markdown)
 
     def test_unreachable_remote_does_not_prevent_local_audit(self) -> None:
         local_audit = self.module.ComputerAudit(
             homebrew={('brew', 'local-package')},
             flatpaks=set(),
             layered_rpms=set(),
+            gnome_extensions=None,
         )
         remote_error = subprocess.CalledProcessError(255, ["ssh", "desk"])
         stdout = io.StringIO()
@@ -211,6 +315,7 @@ class PackageAuditTests(unittest.TestCase):
             homebrew={('brew', 'local-package')},
             flatpaks=set(),
             layered_rpms=set(),
+            gnome_extensions=None,
         )
         stdout = io.StringIO()
         stderr = io.StringIO()
@@ -232,7 +337,7 @@ class PackageAuditTests(unittest.TestCase):
         self.assertIn("warning: skipping Flatpak audit", stderr.getvalue())
 
     def test_save_uses_current_directory_default_and_custom_output(self) -> None:
-        audit = self.module.ComputerAudit(set(), set(), set())
+        audit = self.module.ComputerAudit(set(), set(), set(), None)
 
         with tempfile.TemporaryDirectory() as temporary_directory:
             temporary_path = Path(temporary_directory)
@@ -271,6 +376,7 @@ class PackageAuditTests(unittest.TestCase):
         self.assertIn("--user and --system Flatpaks", help_text)
         self.assertIn("managed manifest is unavailable", help_text)
         self.assertIn("Layered RPMs", help_text)
+        self.assertIn("GNOME Shell extensions", help_text)
         self.assertIn("--output", help_text)
 
     def test_ujust_recipe_forwards_help(self) -> None:

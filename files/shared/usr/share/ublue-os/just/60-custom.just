@@ -31,7 +31,7 @@ install-ptinopedila-brew:
     echo "Ptinopedila Homebrew bundles installed."
     echo "Open a new terminal if newly installed commands are not yet on PATH."
 
-# Report unmanaged Homebrew packages, Flatpaks, and layered RPMs.
+# Report unmanaged packages and installed GNOME Shell extensions.
 [arg('config', long='config')]
 [arg('help', long='help', short='h', value='true')]
 [arg('output', long='output')]

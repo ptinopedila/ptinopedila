@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Report packages installed outside ptinopedila's managed package sets."""
+"""Audit unmanaged packages and installed GNOME Shell extensions."""
 
 from __future__ import annotations
 
@@ -7,6 +7,7 @@ import argparse
 import json
 import os
 import re
+import shutil
 import socket
 import subprocess
 import sys
@@ -36,12 +37,14 @@ BREWFILE_ENTRY: re.Pattern[str] = re.compile(
 
 HomebrewPackage = tuple[str, str]
 FlatpakApplication = tuple[str, str]
+GnomeExtensionStates = dict[str, bool]
 
 
 class ComputerAudit(NamedTuple):
     homebrew: set[HomebrewPackage]
     flatpaks: set[FlatpakApplication]
     layered_rpms: set[str]
+    gnome_extensions: GnomeExtensionStates | None
 
 
 def default_config_path() -> Path:
@@ -171,6 +174,16 @@ def run_lines(
     }
 
 
+def command_exists(command: str, ssh_target: str | None = None) -> bool:
+    if ssh_target is None:
+        return shutil.which(command) is not None
+
+    try:
+        return bool(run_text(["command", "-v", command], ssh_target).strip())
+    except subprocess.CalledProcessError:
+        return False
+
+
 def get_installed_homebrew(
     ssh_target: str | None = None,
 ) -> set[HomebrewPackage]:
@@ -205,6 +218,26 @@ def get_installed_flatpaks(
         )
         installed.update((scope, application) for application in applications)
     return installed
+
+
+def get_gnome_extensions(
+    ssh_target: str | None = None,
+) -> GnomeExtensionStates | None:
+    command: str = "gnome-extensions"
+    if not command_exists(command, ssh_target):
+        return None
+
+    try:
+        installed: set[str] = run_lines([command, "list"], ssh_target)
+        enabled: set[str] = run_lines(
+            [command, "list", "--enabled"], ssh_target
+        )
+    except (FileNotFoundError, subprocess.CalledProcessError):
+        return None
+
+    return {
+        extension: extension in enabled for extension in sorted(installed)
+    }
 
 
 def parse_layered_rpms(status_text: str) -> set[str]:
@@ -263,6 +296,7 @@ def audit_computer(
         homebrew=get_installed_homebrew(ssh_target) - managed_homebrew,
         flatpaks=unmanaged_flatpaks,
         layered_rpms=get_layered_rpms(ssh_target),
+        gnome_extensions=get_gnome_extensions(ssh_target),
     )
 
 
@@ -345,6 +379,35 @@ def layered_rpm_rows(
     return ["Package", *computer_names], rows
 
 
+def gnome_extension_rows(
+    audits: dict[str, ComputerAudit],
+) -> tuple[list[str], list[list[str]]]:
+    computer_names: list[str] = list(audits)
+    extensions: list[str] = sorted(
+        {
+            extension
+            for audit in audits.values()
+            if audit.gnome_extensions is not None
+            for extension in audit.gnome_extensions
+        }
+    )
+    rows: list[list[str]] = []
+    for extension in extensions:
+        states: list[str] = []
+        for computer_name in computer_names:
+            extension_states = audits[computer_name].gnome_extensions
+            if extension_states is None:
+                states.append("n/a")
+            elif extension not in extension_states:
+                states.append("")
+            elif extension_states[extension]:
+                states.append("✓")
+            else:
+                states.append("○")
+        rows.append([extension, *states])
+    return ["Extension", *computer_names], rows
+
+
 def render_terminal_table(
     headers: list[str], rows: list[list[str]], computer_column_start: int
 ) -> list[str]:
@@ -385,11 +448,13 @@ def render_terminal(
 ) -> str:
     homebrew_headers, homebrew_data = homebrew_rows(audits)
     rpm_headers, rpm_data = layered_rpm_rows(audits)
+    extension_headers, extension_data = gnome_extension_rows(audits)
 
     lines: list[str] = [
         "Package audit",
         "",
-        "Packages installed outside ptinopedila's managed package sets.",
+        "Unmanaged packages and installed GNOME Shell extensions across "
+        "audited computers.",
         "",
         "Homebrew",
         *render_terminal_table(homebrew_headers, homebrew_data, 2),
@@ -402,6 +467,19 @@ def render_terminal(
                 "",
                 "Flatpaks",
                 *render_terminal_table(flatpak_headers, flatpak_data, 2),
+            ]
+        )
+
+    if extension_data:
+        lines.extend(
+            [
+                "",
+                "GNOME extensions",
+                "✓ enabled · ○ installed but disabled · blank not installed "
+                "· n/a unavailable",
+                *render_terminal_table(
+                    extension_headers, extension_data, 1
+                ),
             ]
         )
 
@@ -442,13 +520,15 @@ def render_markdown(
 ) -> str:
     homebrew_headers, homebrew_data = homebrew_rows(audits)
     rpm_headers, rpm_data = layered_rpm_rows(audits)
+    extension_headers, extension_data = gnome_extension_rows(audits)
 
     lines: list[str] = [
         "# Package audit",
         "",
         "<!-- Generated by ujust package-audit. -->",
         "",
-        "Packages installed outside ptinopedila's managed package sets.",
+        "Unmanaged packages and installed GNOME Shell extensions across "
+        "audited computers.",
         "",
         "## Homebrew",
         "",
@@ -463,6 +543,19 @@ def render_markdown(
                 "## Flatpaks",
                 "",
                 *render_markdown_table(flatpak_headers, flatpak_data),
+            ]
+        )
+
+    if extension_data:
+        lines.extend(
+            [
+                "",
+                "## GNOME extensions",
+                "",
+                "✓ enabled · ○ installed but disabled · blank not installed "
+                "· n/a unavailable",
+                "",
+                *render_markdown_table(extension_headers, extension_data),
             ]
         )
 
@@ -492,6 +585,9 @@ Report contents:
                distinguishes --user and --system Flatpaks. Runtimes and
                extensions are excluded. This section is skipped when the
                managed manifest is unavailable.
+  GNOME        Installed GNOME Shell extensions and their enabled state. This
+               section appears when gnome-extensions reports at least one
+               installed extension on an audited computer.
   Layered RPMs Packages requested on the booted rpm-ostree deployment.
                Ptinopedila does not support package layering.
 
