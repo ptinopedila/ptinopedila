@@ -60,6 +60,7 @@ jobs:
           tests/install-languagetool.sh
           tests/configure-latex.sh
           tests/configure-vscode-latex.sh
+          tests/configure-image-info.sh
           tests/toggle-bluetooth-on-boot.sh
           tests/toggle-mac-randomization.sh
           tests/cups-recipes.sh
