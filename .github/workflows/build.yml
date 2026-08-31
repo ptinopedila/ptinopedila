@@ -43,7 +43,9 @@ jobs:
             -exec bash -n {} +
 
       - name: Check just formatting
-        run: just --fmt --check --unstable --justfile files/shared/usr/share/ublue-os/just/60-custom.just
+        run: |
+          just --fmt --check --unstable --justfile files/shared/usr/share/ublue-os/just/60-custom.just
+          just --fmt --check --unstable --justfile files/shared/usr/share/ublue-os/just/60-bonedigger.just
 
       - name: Check text files
         run: tests/check-text-files.sh
@@ -61,6 +63,7 @@ jobs:
           tests/configure-latex.sh
           tests/configure-vscode-latex.sh
           tests/configure-image-info.sh
+          tests/configure-support-surfaces.sh
           tests/toggle-bluetooth-on-boot.sh
           tests/toggle-mac-randomization.sh
           tests/cups-recipes.sh

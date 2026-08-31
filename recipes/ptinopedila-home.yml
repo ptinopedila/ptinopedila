@@ -9,7 +9,7 @@ image-version: stable
 
 # list of modules, executed in order
 modules:
-  - from-file: common_modules/bluefin-rename-dconf.yml
+  - from-file: common_modules/bluefin-remove-dconf.yml
   - from-file: common_modules/workstation.yml
   - from-file: common_modules/secureblue.yml
   - from-file: common_modules/image-info.yml

@@ -31,6 +31,11 @@ modules:
       - source: shared
         destination: /
 
+  # Redirect inherited user-facing support links to the downstream project.
+  - type: script
+    scripts:
+      - configure-support-surfaces.sh
+
   # Verify the inherited Bluefin Homebrew installer is still available
   - type: script
     scripts:
