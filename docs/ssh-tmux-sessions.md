@@ -1,5 +1,5 @@
 > **Created:** `2026-08-15T03:27+03:00` · **Last updated:**
-> `2026-08-24T02:48+03:00`
+> `2026-09-01T05:08+03:00`
 
 # Choose a tmux session when connecting over SSH
 
@@ -41,6 +41,13 @@ against connection loss, not a reboot or power loss on the remote computer.
 The chooser is not displayed inside an existing tmux session, which prevents
 tmux from starting recursively. It is also skipped when tmux is unavailable or
 when the `NO_AUTO_TMUX` escape hatch is set for the login.
+
+To bypass the chooser for one connection, set `NO_AUTO_TMUX` when starting the
+remote login shell:
+
+```sh
+ssh -t HOST 'NO_AUTO_TMUX=1 zsh -l'
+```
 
 ## Learn more about tmux
 
