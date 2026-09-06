@@ -6,7 +6,8 @@ umask 077
 # Run a clean monthly install without CXXFLAGS. Report fixed=true only when
 # optim builds normally and solves a small nonlinear optimization problem. A
 # known Octave 11/C++11 failure reports fixed=false; any other error fails CI.
-# Use Homebrew GCC in CI so its C++20 default matches Ptinopedila's compiler.
+# Use Homebrew GCC and binutils in CI so the compiler default matches
+# Ptinopedila and the assembler understands the compiler's emitted directives.
 
 if command -v octave-cli >/dev/null 2>&1; then
     octave_command=$(command -v octave-cli)
@@ -24,6 +25,7 @@ for required_command in awk env grep mkdir mktemp rm sort tail tee; do
     fi
 done
 
+optim_path=$PATH
 if [[ -n ${PTINOPEDILA_OPTIM_CHECK_CXX:-} ]]; then
     optim_cxx=$PTINOPEDILA_OPTIM_CHECK_CXX
 else
@@ -38,6 +40,12 @@ else
 
     gcc_prefix=$($brew_command --prefix gcc)
     optim_cxx=$(printf '%s\n' "$gcc_prefix"/bin/g++-* | sort -V | tail -n 1)
+    binutils_prefix=$($brew_command --prefix binutils)
+    if [[ ! -x $binutils_prefix/bin/as ]]; then
+        echo "The Homebrew assembler is not executable: $binutils_prefix/bin/as" >&2
+        exit 1
+    fi
+    optim_path="$binutils_prefix/bin:$optim_path"
 fi
 
 if [[ ! -x $optim_cxx ]]; then
@@ -71,6 +79,7 @@ run_octave() {
     env -u CXXFLAGS \
         CXX="$optim_cxx" \
         HOME="$test_home" \
+        PATH="$optim_path" \
         XDG_CONFIG_HOME="$config_home" \
         "$octave_command" \
         --quiet \
