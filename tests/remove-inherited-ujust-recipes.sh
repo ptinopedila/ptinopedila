@@ -17,7 +17,7 @@ printf '%s\n' \
   'bluefin-cli:' \
   '    false' \
   '' \
-  '# alias for toggle-devmode — opens the Developer panel in bluefinctl when available' \
+  '# alias for toggle-devmode' \
   'devmode:' \
   '    true' \
   '' \

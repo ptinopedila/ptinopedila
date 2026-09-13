@@ -52,7 +52,7 @@ remove_recipe_block \
   "${system_just}" \
   bluefin-cli \
   '# Configure Bluefin-CLI Terminal Experience with Brew' \
-  '# alias for toggle-devmode — opens the Developer panel in bluefinctl when available'
+  '# alias for toggle-devmode'
 
 # Ptinopedila only publishes the latest tag. Bluefin's toggle-testing recipe
 # derives a testing tag from the current image reference, so retaining it would
