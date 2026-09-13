@@ -38,9 +38,21 @@ if ! grep -Eq 'Bluefin Bug Report|ptinopedila Bug Report' "${bonedigger_report}"
     echo "Bonedigger brand definition changed upstream: ${bonedigger_report}" >&2
     exit 1
 fi
+bonedigger_uses_helper=false
 if grep -Fq 'route_issue_repo()' "${bonedigger_report}"; then
     bonedigger_generation="current"
-    if ! grep -Eq 'BUG_REPO="(projectbluefin/common|ptinopedila/ptinopedila)"' \
+    if grep -Fq 'UBLUE_IMAGE_REPO_BIN' "${bonedigger_report}"; then
+        bonedigger_uses_helper=true
+        # Keep the shared resolver and change only Bonedigger's fallback.
+        # Reject unfamiliar calls rather than silently leaving reports upstream.
+        if ! grep -Fxq '    BUG_REPO="$("${UBLUE_IMAGE_REPO_BIN:-/usr/libexec/ublue-image-repo}" \' \
+            "${bonedigger_report}" ||
+            ! grep -Eq '^        --default "(projectbluefin/common|ptinopedila/ptinopedila)" "\$IMAGE_NAME" "\$IMAGE_TAG"\)"$' \
+                "${bonedigger_report}"; then
+            echo "Bonedigger fallback routing changed upstream: ${bonedigger_report}" >&2
+            exit 1
+        fi
+    elif ! grep -Eq 'BUG_REPO="(projectbluefin/common|ptinopedila/ptinopedila)"' \
         "${bonedigger_report}"; then
         echo "Bonedigger fallback routing changed upstream: ${bonedigger_report}" >&2
         exit 1
@@ -64,6 +76,7 @@ else
     fi
 fi
 readonly bonedigger_generation
+readonly bonedigger_uses_helper
 
 temporary_directory="$(mktemp -d)"
 readonly temporary_directory
@@ -89,8 +102,13 @@ fi
 grep -Fq 'BONEDIGGER_BRAND="${BONEDIGGER_BRAND:-ptinopedila Bug Report}"' \
     "${temporary_directory}/bonedigger-report"
 if [[ "${bonedigger_generation}" == "current" ]]; then
-    grep -Fq 'BUG_REPO="ptinopedila/ptinopedila"' \
-        "${temporary_directory}/bonedigger-report"
+    if [[ "${bonedigger_uses_helper}" == true ]]; then
+        grep -Fxq '        --default "ptinopedila/ptinopedila" "$IMAGE_NAME" "$IMAGE_TAG")"' \
+            "${temporary_directory}/bonedigger-report"
+    else
+        grep -Fq 'BUG_REPO="ptinopedila/ptinopedila"' \
+            "${temporary_directory}/bonedigger-report"
+    fi
     grep -Fq 'create_draft "ptinopedila/ptinopedila"' \
         "${temporary_directory}/bonedigger-report"
 else

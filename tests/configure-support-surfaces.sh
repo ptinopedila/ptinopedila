@@ -193,4 +193,66 @@ if [[ "${first_checksum}" != "${second_checksum}" ]]; then
   exit 1
 fi
 
+# Exercise the upstream helper call introduced by common commit cbd595a.
+# The helper fixture is copied verbatim from:
+# https://github.com/projectbluefin/common/blob/cbd595a5a603d5890216e92e78f94660ff77c720/system_files/shared/usr/libexec/ublue-image-repo
+helper_report_file="${test_directory}/usr/libexec/helper-bonedigger-report"
+cat > "${helper_report_file}" <<'EOF'
+#!/usr/bin/env bash
+BONEDIGGER_BRAND="${BONEDIGGER_BRAND:-Bluefin Bug Report}"
+route_issue_repo() {
+    BUG_REPO="$("${UBLUE_IMAGE_REPO_BIN:-/usr/libexec/ublue-image-repo}" \
+        --default "projectbluefin/common" "$IMAGE_NAME" "$IMAGE_TAG")"
+}
+start_feature_request() {
+    create_draft "projectbluefin/common"
+}
+EOF
+
+for pass in 1 2; do
+  BONEDIGGER_REPORT_FILE="${helper_report_file}" \
+  BONEDIGGER_JUST_FILE="${downstream_bonedigger}" \
+  WELCOME_CONFIG_FILE="${welcome_config}" \
+  APPLICATIONS_DIRECTORY="${applications_directory}" \
+    "${configurator}"
+
+  # Source only this small fixture, never the full report collector.
+  (
+    source "${helper_report_file}"
+    export UBLUE_IMAGE_REPO_BIN="${repository_root}/tests/fixtures/ublue-image-repo"
+    for IMAGE_NAME in ptinopedila-home ptinopedila-home-nvidia; do
+      IMAGE_TAG=latest
+      route_issue_repo
+      [[ "${BUG_REPO}" == "ptinopedila/ptinopedila" ]]
+    done
+    # Changing the fallback must preserve upstream's recognized-image routing.
+    IMAGE_NAME=bluefin
+    IMAGE_TAG=stable
+    route_issue_repo
+    [[ "${BUG_REPO}" == "projectbluefin/bluefin" ]]
+    create_draft() { printf '%s\n' "$1"; }
+    [[ "$(start_feature_request)" == "ptinopedila/ptinopedila" ]]
+  )
+  helper_checksum="$(sha256sum "${helper_report_file}")"
+  if [[ "${pass}" == 1 ]]; then
+    first_helper_checksum="${helper_checksum}"
+  else
+    [[ "${helper_checksum}" == "${first_helper_checksum}" ]]
+  fi
+done
+
+# Reject unfamiliar routing before changing the source file.
+sed -i 's/--default /--unknown-default /' "${helper_report_file}"
+unknown_checksum="$(sha256sum "${helper_report_file}")"
+if BONEDIGGER_REPORT_FILE="${helper_report_file}" \
+  BONEDIGGER_JUST_FILE="${downstream_bonedigger}" \
+  WELCOME_CONFIG_FILE="${welcome_config}" \
+  APPLICATIONS_DIRECTORY="${applications_directory}" \
+    "${configurator}" > "${test_directory}/unknown-routing.log" 2>&1; then
+  echo "Unknown Bonedigger routing was accepted." >&2
+  exit 1
+fi
+grep -Fq 'Bonedigger fallback routing changed upstream' "${test_directory}/unknown-routing.log"
+[[ "$(sha256sum "${helper_report_file}")" == "${unknown_checksum}" ]]
+
 echo "Support-surface configuration tests passed."
