@@ -12,12 +12,8 @@ modules:
     install:
       install-weak-deps: false
       packages:
-        - hddtemp
         - lm_sensors
-        - openssh
-        - procinfo
         - smartmontools
-        - util-linux-user
   # Handle inherited Bluefin configuration that is incompatible with this image
   - type: script
     scripts:
@@ -52,10 +48,8 @@ modules:
     install:
       install-weak-deps: false
       packages:
-        - dconf-editor
         - ddccontrol-gtk
         - file-roller-nautilus
-        - fontawesome-fonts-web
         - google-carlito-fonts
         - vicinae
 
@@ -85,6 +79,7 @@ modules:
           - com.github.PintaProject.Pinta
 
           # GNOME desktop applications
+          - ca.desrt.dconf-editor
           - com.mattjakeman.ExtensionManager
           - org.gnome.baobab
           - org.gnome.Calculator

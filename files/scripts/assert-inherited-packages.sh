@@ -8,6 +8,8 @@ set -euo pipefail
 readonly required_packages=(
     firewall-config
     kmod-v4l2loopback
+    openssh
+    util-linux
     v4l2loopback
     zsh
 )
