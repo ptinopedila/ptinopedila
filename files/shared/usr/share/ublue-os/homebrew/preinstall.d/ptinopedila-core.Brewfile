@@ -3,6 +3,8 @@
 # Category: Foundation
 # Install policy: automatic
 
+tap "chmouel/raffi", trusted: true
+
 brew "bat"
 brew "btop"
 brew "fd"
@@ -13,6 +15,7 @@ brew "jq"
 brew "lsd"
 brew "procs"
 brew "pv"
+brew "chmouel/raffi/raffi", trusted: true
 brew "rclone"
 brew "restic"
 brew "ripgrep"
