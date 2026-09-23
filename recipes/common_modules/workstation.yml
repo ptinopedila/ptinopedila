@@ -41,17 +41,12 @@ modules:
 
   # Desktop RPM layer
   - type: dnf
-    repos:
-      cleanup: true
-      copr:
-        - quadratech188/vicinae
     install:
       install-weak-deps: false
       packages:
         - ddccontrol-gtk
         - file-roller-nautilus
         - google-carlito-fonts
-        - vicinae
 
   # Desktop Flatpak layer
   - type: default-flatpaks
