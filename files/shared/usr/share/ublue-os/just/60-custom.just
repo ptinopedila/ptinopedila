@@ -172,6 +172,22 @@ install-languagetool no_service="false" port="":
 
     exec "${INSTALLER}" "${ARGS[@]}"
 
+# Install the word lookup popup, Antigravity CLI, skill, and Raffi addon.
+[arg('copy_skill', long='copy-skill', value='true')]
+[group('Setup')]
+[positional-arguments]
+install-word-lookup copy_skill="false":
+    #!/usr/bin/env bash
+    set -euo pipefail
+
+    INSTALLER="${PTINOPEDILA_WORD_LOOKUP_INSTALLER:-/usr/libexec/ptinopedila/install-word-lookup}"
+    ARGS=()
+    if [[ $1 == "true" ]]; then
+        ARGS+=(--copy-skill)
+    fi
+
+    exec "${INSTALLER}" "${ARGS[@]}"
+
 # Configure the current project to build LaTeX documents with latexmk.
 [group('Development')]
 [no-cd]

@@ -46,6 +46,7 @@ Ptinopedila-specific guides:
 - [Install RStudio and Positron in an R workbench](docs/install-r-workbench.md)
 - [Install Julia](docs/install-julia.md)
 - [Install LanguageTool](docs/install-languagetool.md)
+- [Look up words from Raffi](docs/use-word-lookup.md)
 - [Configure LaTeX projects](docs/configure-latex.md)
 - [Use a Ptinopedila PC as a Tailscale exit node](docs/use-tailscale-exit-node.md)
 - [Manage login lockouts](docs/manage-faillock.md)

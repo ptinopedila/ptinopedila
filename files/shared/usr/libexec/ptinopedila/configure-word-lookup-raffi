@@ -1,0 +1,102 @@
+#!/usr/bin/python3
+"""Add the word keyword to Raffi without replacing other settings or comments."""
+
+from __future__ import annotations
+
+import argparse
+import io
+import os
+from pathlib import Path
+import shutil
+import shlex
+import sys
+import tempfile
+
+from ruamel.yaml import YAML
+from ruamel.yaml.comments import CommentedMap
+from ruamel.yaml.error import YAMLError
+
+
+def configure(path: Path, helper: Path, *, check: bool = False) -> None:
+    # Update the target of a dotfiles symlink, preserving the symlink itself.
+    path = path.expanduser().resolve()
+    yaml = YAML()
+    yaml.preserve_quotes = True
+    original = path.read_text(encoding="utf-8") if path.exists() else ""
+    config = yaml.load(original)
+    if config is None:
+        config = CommentedMap()
+    if not isinstance(config, dict):
+        raise ValueError("Raffi configuration must be a YAML mapping.")
+    for key in ("general", "addons"):
+        config.setdefault(key, CommentedMap())
+        if not isinstance(config[key], dict):
+            raise ValueError(f"Raffi {key} must be a mapping.")
+    addons = config["addons"]
+    addons.setdefault("script_filters", [])
+    filters = addons["script_filters"]
+    if not isinstance(filters, list) or not all(isinstance(item, dict) for item in filters):
+        raise ValueError("Raffi script_filters must be a list of mappings.")
+    entry = {
+        "name": "Word lookup",
+        "keyword": "word",
+        "command": str(helper),
+        "args": ["--raffi", "--"],
+        "action": f"{shlex.quote(str(helper))} --encoded -- {{value}}",
+    }
+    matches = [item for item in filters if item.get("keyword") == "word"]
+    if any(item.get("command") != str(helper) for item in matches):
+        raise ValueError("The Raffi keyword 'word' is already in use. Rename that keyword and retry.")
+    for kind in ("web_searches", "text_snippets"):
+        items = addons.get(kind, []) or []
+        if not isinstance(items, list) or not all(isinstance(item, dict) for item in items):
+            raise ValueError(f"Raffi {kind} must be a list of mappings.")
+        if any(item.get("keyword") == "word" for item in items):
+            raise ValueError(f"The Raffi keyword 'word' is already used by {kind}.")
+    if config["general"].get("ui_type") == "native" and matches == [entry]:
+        print(f"Word lookup is already configured in {path}.")
+        return
+    config["general"]["ui_type"] = "native"
+    for item in matches:
+        filters.remove(item)
+    filters.append(entry)
+    output = io.StringIO()
+    yaml.dump(config, output)
+    updated = output.getvalue()
+    if check:
+        return
+    path.parent.mkdir(parents=True, exist_ok=True)
+    if path.exists():
+        backup = path.with_name(path.name + ".before-word-lookup")
+        if not backup.exists():
+            shutil.copy2(path, backup)
+    with tempfile.NamedTemporaryFile(mode="w", encoding="utf-8", dir=path.parent,
+                                     delete=False) as temporary:
+        replacement = Path(temporary.name)
+        try:
+            temporary.write(updated)
+            temporary.flush()
+            os.fchmod(temporary.fileno(), path.stat().st_mode & 0o777 if path.exists() else 0o600)
+            os.replace(replacement, path)
+        finally:
+            replacement.unlink(missing_ok=True)
+    print(f"Configured word lookup in {path}.")
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--config", type=Path, default=Path(
+        os.environ.get("XDG_CONFIG_HOME", str(Path.home() / ".config"))) / "raffi/raffi.yaml")
+    parser.add_argument("--helper", type=Path, default=Path(__file__).resolve().with_name("word-lookup"))
+    parser.add_argument("--check", action="store_true", help="Check for conflicts without writing")
+    args = parser.parse_args()
+    try:
+        configure(args.config, args.helper.resolve(), check=args.check)
+    except (OSError, ValueError, YAMLError) as error:
+        print(f"Cannot configure Raffi: {error}", file=sys.stderr)
+        return 1
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

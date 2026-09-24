@@ -1,0 +1,159 @@
+#!/usr/bin/python3
+"""Install Antigravity, the word-lookup skill, and the Raffi integration."""
+
+from __future__ import annotations
+
+import argparse
+import hashlib
+import json
+import os
+from pathlib import Path
+import platform
+import shutil
+import subprocess
+import sys
+import tarfile
+import tempfile
+import urllib.request
+import zipfile
+
+
+MANIFEST_ROOT = "https://antigravity-cli-auto-updater-974169037036.us-central1.run.app/manifests"
+
+
+def download(url: str) -> bytes:
+    if not url.startswith("https://"):
+        raise ValueError("Antigravity download URL must use HTTPS.")
+    with urllib.request.urlopen(url, timeout=60) as response:
+        if not response.url.startswith("https://"):
+            raise ValueError("Antigravity download redirected away from HTTPS.")
+        return response.read()
+
+
+def install_agy(destination: Path) -> None:
+    if shutil.which("agy") or (destination.is_file() and os.access(destination, os.X_OK)):
+        print("Antigravity CLI is already installed.")
+        return
+    if destination.exists() or destination.is_symlink():
+        raise ValueError(f"Refusing to overwrite {destination}.")
+    architectures = {"x86_64": "amd64", "aarch64": "arm64"}
+    arch = architectures.get(platform.machine())
+    if platform.system() != "Linux" or not arch:
+        raise ValueError("This installer supports Linux x86_64 and aarch64.")
+    # Use the same release manifest and SHA-512 verification as Google's
+    # bootstrapper, without its shell-profile edits or native install handoff.
+    manifest = json.loads(download(f"{MANIFEST_ROOT}/linux_{arch}.json"))
+    payload = download(manifest["url"])
+    if hashlib.sha512(payload).hexdigest() != manifest["sha512"]:
+        raise ValueError("Antigravity download checksum mismatch.")
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    with tempfile.TemporaryDirectory(dir=destination.parent, prefix=".agy-install-") as directory:
+        archive = Path(directory) / "release.tar.gz"
+        archive.write_bytes(payload)
+        with tarfile.open(archive, "r:gz") as release:
+            member = release.getmember("antigravity")
+            if not member.isfile():
+                raise ValueError("Antigravity archive does not contain a regular executable.")
+            source = release.extractfile(member)
+            if source is None:
+                raise ValueError("Cannot read Antigravity executable.")
+            binary = Path(directory) / "agy"
+            with source, binary.open("wb") as output:
+                shutil.copyfileobj(source, output)
+        binary.chmod(0o755)
+        subprocess.run([str(binary), "--help"], check=True, capture_output=True, timeout=15)
+        os.replace(binary, destination)
+    print(f"Installed Antigravity CLI {manifest['version']} at {destination}.")
+
+
+def ensure_link(destination: Path, source: Path) -> None:
+    if destination.is_symlink() and destination.readlink() == source:
+        return
+    if destination.exists() or destination.is_symlink():
+        raise ValueError(f"Refusing to replace existing skill: {destination}")
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    destination.symlink_to(source, target_is_directory=True)
+
+
+def install_skill(source: Path, home: Path, *, copy: bool) -> Path:
+    destination = home / ".agents/skills/word-lookup"
+    if destination.is_symlink() and destination.readlink() == source and copy:
+        with tempfile.TemporaryDirectory(dir=destination.parent, prefix=".word-lookup-") as directory:
+            replacement = Path(directory) / "word-lookup"
+            shutil.copytree(source, replacement)
+            destination.unlink()
+            replacement.rename(destination)
+    elif destination.is_dir() and not destination.is_symlink():
+        if not (destination / "SKILL.md").is_file():
+            raise ValueError(f"Existing skill has no SKILL.md: {destination}")
+        print(f"Keeping your personal skill at {destination}.")
+    elif copy and not destination.exists() and not destination.is_symlink():
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copytree(source, destination)
+    else:
+        ensure_link(destination, source)
+    for skills in (home / ".gemini/antigravity-cli/skills", home / ".claude/skills"):
+        ensure_link(skills / "word-lookup", destination)
+    return destination
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--copy-skill", action="store_true",
+                        help="Keep an editable personal copy instead of an image-managed symlink")
+    args = parser.parse_args()
+    try:
+        if os.geteuid() == 0:
+            raise ValueError("Run this recipe as your regular user, without sudo.")
+        for command in ("zenity", "xdg-terminal-exec", "wl-copy"):
+            if not shutil.which(command):
+                raise ValueError(f"Missing image dependency: {command}. Update your Ptinopedila image.")
+        helper_dir = Path(__file__).resolve().parent
+        skill_source = helper_dir.parents[1] / "share/ptinopedila/skills/word-lookup"
+        if not (skill_source / "SKILL.md").is_file():
+            raise ValueError(f"Missing image-managed skill: {skill_source}")
+        configure = [sys.executable, str(helper_dir / "configure-word-lookup-raffi")]
+        subprocess.run([*configure, "--check"], check=True)
+        user_home = Path.home()
+        # Check skill collisions before downloading or editing configuration.
+        primary = user_home / ".agents/skills/word-lookup"
+        for destination, source in (
+            (primary, skill_source),
+            (user_home / ".gemini/antigravity-cli/skills/word-lookup", primary),
+            (user_home / ".claude/skills/word-lookup", primary),
+        ):
+            if destination == primary and destination.is_dir() and not destination.is_symlink():
+                if (destination / "SKILL.md").is_file():
+                    continue
+            if destination.exists() or destination.is_symlink():
+                if not destination.is_symlink() or destination.readlink() != source:
+                    raise ValueError(f"Refusing to replace existing skill: {destination}")
+        if not shutil.which("raffi"):
+            brew = shutil.which("brew") or "/home/linuxbrew/.linuxbrew/bin/brew"
+            if not Path(brew).is_file():
+                raise ValueError("Homebrew is required to install Raffi.")
+            subprocess.run([brew, "tap", "chmouel/raffi"], check=True)
+            subprocess.run([brew, "trust", "--tap", "chmouel/raffi"], check=True)
+            subprocess.run([brew, "install", "chmouel/raffi/raffi"], check=True)
+        install_agy(user_home / ".local/bin/agy")
+        installed_skill = install_skill(skill_source, user_home, copy=args.copy_skill)
+        export_dir = Path(os.environ.get("XDG_DATA_HOME", str(user_home / ".local/share"))) / "ptinopedila"
+        export_dir.mkdir(parents=True, exist_ok=True)
+        archive = export_dir / "word-lookup.zip"
+        with zipfile.ZipFile(archive, "w", zipfile.ZIP_DEFLATED) as bundle:
+            for file in sorted(installed_skill.rglob("*")):
+                if file.is_file():
+                    bundle.write(file, Path("word-lookup") / file.relative_to(installed_skill))
+        subprocess.run(configure, check=True)
+        print("Ready. Reopen Raffi, type word followed by a word, and press Enter.")
+        print("If login is needed, the popup offers to open Antigravity in a terminal.")
+        print(f"Skill ZIP for chat apps with skill uploads: {archive}")
+        return 0
+    except (OSError, ValueError, KeyError, tarfile.TarError,
+            subprocess.SubprocessError) as error:
+        print(f"Word lookup setup failed: {error}", file=sys.stderr)
+        return 1
+
+
+if __name__ == "__main__":
+    sys.exit(main())

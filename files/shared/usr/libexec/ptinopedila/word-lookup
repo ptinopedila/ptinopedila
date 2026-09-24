@@ -1,0 +1,253 @@
+#!/usr/bin/python3
+"""Run a word-lookup skill through Antigravity and display a Zenity popup."""
+
+from __future__ import annotations
+
+import argparse
+import base64
+import binascii
+import json
+import os
+from pathlib import Path
+import re
+import shutil
+import signal
+import subprocess
+import sys
+import tempfile
+import time
+
+
+class LoginRequired(RuntimeError):
+    pass
+
+
+class Cancelled(Exception):
+    pass
+
+
+def agy_command() -> str:
+    local = Path.home() / ".local/bin/agy"
+    if local.is_file() and os.access(local, os.X_OK):
+        return str(local)
+    found = shutil.which("agy")
+    if not found:
+        raise RuntimeError("Run ujust install-word-lookup to install Antigravity CLI.")
+    return found
+
+
+def stop(process: subprocess.Popen) -> None:
+    """Stop the whole request, including children started by the CLI."""
+    if process.poll() is None:
+        try:
+            os.killpg(process.pid, signal.SIGTERM)
+        except ProcessLookupError:
+            process.wait()
+            return
+        try:
+            process.wait(timeout=2)
+        except subprocess.TimeoutExpired:
+            try:
+                os.killpg(process.pid, signal.SIGKILL)
+            except ProcessLookupError:
+                pass
+            process.wait()
+
+
+def needs_login(text: str) -> bool:
+    return bool(re.search(
+        r"authentication required|waiting for authentication|"
+        r"authentication failed|not authenticated|please (?:log|sign) in",
+        text, re.IGNORECASE,
+    ))
+
+
+def lookup(query: str, *, timeout: float = 90) -> tuple[str, str]:
+    command = agy_command()
+    skill = Path.home() / ".agents/skills/word-lookup/SKILL.md"
+    if not skill.is_file():
+        raise RuntimeError("The word-lookup skill is missing. Run ujust install-word-lookup.")
+    # Pass the installed skill itself so customized copies work without relying
+    # on automatic discovery or print-mode slash-command expansion.
+    prompt = (skill.read_text(encoding="utf-8") +
+              "\n\nUse this skill for desktop popup output. Lookup input as JSON:\n" +
+              json.dumps(query, ensure_ascii=False))
+    schema = {
+        "type": "object",
+        "properties": {
+            "answer": {"type": "string", "description": "The full plain-text explanation."},
+            "corrected_word": {
+                "type": "string",
+                "description": "Only the unambiguous spelling correction, or an empty string if none or uncertain.",
+            },
+        },
+        "required": ["answer", "corrected_word"],
+        "additionalProperties": False,
+    }
+    with tempfile.TemporaryDirectory(prefix="word-lookup-") as directory:
+        # Keep this request out of the caller's project and avoid pipe buffers
+        # blocking while the popup waits for the agent.
+        out_path, err_path = Path(directory) / "stdout", Path(directory) / "stderr"
+        with out_path.open("w", encoding="utf-8") as stdout, \
+                err_path.open("w", encoding="utf-8") as stderr:
+            progress = subprocess.Popen(
+                ["zenity", "--progress", "--pulsate", "--title=Word lookup",
+                 "--text=Looking up your word…", "--no-markup", "--width=400"],
+                stdin=subprocess.PIPE, stdout=subprocess.DEVNULL,
+                start_new_session=True,
+            )
+            process: subprocess.Popen | None = None
+            try:
+                process = subprocess.Popen(
+                    [command, "--print", prompt, "--output-format", "json",
+                     "--json-schema", json.dumps(schema),
+                     "--effort", "low", "--print-timeout", f"{timeout:g}s"],
+                    cwd=directory, stdin=subprocess.DEVNULL,
+                    stdout=stdout, stderr=stderr, start_new_session=True,
+                )
+                deadline = time.monotonic() + timeout
+                while process.poll() is None:
+                    if progress.poll() is not None:
+                        raise Cancelled()
+                    # Do not wait for the CLI's interactive login timeout.
+                    diagnostics = err_path.read_text(encoding="utf-8", errors="replace")
+                    if needs_login(diagnostics):
+                        raise LoginRequired()
+                    if time.monotonic() >= deadline:
+                        raise RuntimeError("The lookup timed out. Check your connection and try again.")
+                    time.sleep(0.1)
+                output = out_path.read_text(encoding="utf-8", errors="replace")
+                diagnostics = err_path.read_text(encoding="utf-8", errors="replace")
+                if needs_login(diagnostics) or (process.returncode and needs_login(output)):
+                    raise LoginRequired()
+                try:
+                    envelope = json.loads(output)
+                except json.JSONDecodeError as error:
+                    raise RuntimeError("Antigravity returned an unreadable response. Try agy in a terminal.") from error
+                if not isinstance(envelope, dict):
+                    raise RuntimeError("Antigravity returned an unexpected response.")
+                if process.returncode or envelope.get("status") != "SUCCESS":
+                    error = str(envelope.get("error") or "Request failed. Check agy in a terminal.")
+                    if needs_login(error):
+                        raise LoginRequired()
+                    raise RuntimeError(error[:1500])
+                result = envelope.get("structured_output")
+                if not isinstance(result, dict):
+                    raise RuntimeError("Antigravity did not return the requested word lookup fields.")
+                answer = result.get("answer")
+                corrected_word = result.get("corrected_word")
+                if not isinstance(answer, str) or not answer.strip():
+                    raise RuntimeError("Antigravity returned an empty answer. Try again.")
+                if not isinstance(corrected_word, str):
+                    raise RuntimeError("Antigravity returned an invalid spelling correction.")
+                return answer.strip(), corrected_word.strip()
+            finally:
+                if process is not None:
+                    stop(process)
+                stop(progress)
+                if progress.stdin:
+                    progress.stdin.close()
+
+
+def show_result(answer: str, corrected_word: str) -> None:
+    if not corrected_word:
+        # Zenity's information dialog has a single button and selectable text.
+        subprocess.run(
+            ["zenity", "--info", "--title=Word lookup", "--width=640",
+             "--no-markup", "--text", answer, "--ok-label=Close"], check=False,
+        )
+        return
+    result = subprocess.run(
+        ["zenity", "--text-info", "--title=Word lookup", "--width=640",
+         "--height=560", "--ok-label=Copy word to clipboard", "--cancel-label=Close"],
+        input=answer, text=True, check=False,
+    )
+    # Closing the window or pressing Escape must never change the clipboard.
+    if result.returncode == 0:
+        copied = subprocess.run(
+            ["wl-copy", "--type", "text/plain;charset=utf-8"],
+            # The clipboard owner forks and retains its output descriptors.
+            # Pipes here would keep communicate() waiting after the copy.
+            input=corrected_word, text=True, stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL, check=False,
+        )
+        if copied.returncode:
+            raise RuntimeError("Could not copy the corrected word to the clipboard.")
+
+
+def login() -> None:
+    command = agy_command()
+    terminal = shutil.which("xdg-terminal-exec")
+    if not terminal:
+        raise RuntimeError(f"Open a terminal and run {command} to log in, then retry the lookup.")
+    subprocess.Popen([terminal, command], cwd=Path.home(), start_new_session=True)
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    mode = parser.add_mutually_exclusive_group()
+    mode.add_argument("--raffi", action="store_true", help="Return a local launcher action as JSON")
+    mode.add_argument("--encoded", action="store_true", help="Decode a launcher query")
+    mode.add_argument("--login", action="store_true", help="Open Antigravity in a terminal")
+    parser.add_argument("query", nargs="?", default="")
+    args = parser.parse_args()
+    query: str = args.query.strip()
+    if args.raffi:
+        # Raffi substitutes this value into a shell command. Only pass a token
+        # from this shell-safe alphabet, never the user's unescaped text.
+        token = base64.urlsafe_b64encode(query.encode()).decode()
+        print(json.dumps({"items": [{
+            "title": f"Look up: {query}" if query else "Look up a word",
+            "subtitle": "Press Enter for spelling, meanings, examples, and synonyms",
+            "arg": token or "=",
+        }]}))
+        return 0
+    try:
+        if args.login:
+            login()
+            return 0
+        if args.encoded:
+            query = "" if query == "=" else base64.b64decode(
+                query, altchars=b"-_", validate=True).decode("utf-8").strip()
+        if not query:
+            entry = subprocess.run(
+                ["zenity", "--entry", "--title=Word lookup", "--width=460",
+                 "--text=Enter a word, phrase, or word | example sentence.", "--no-markup"],
+                capture_output=True, text=True, check=False,
+            )
+            if entry.returncode or not entry.stdout.strip():
+                return 0
+            query = entry.stdout.strip()
+        if len(query) > 8000:
+            raise RuntimeError("Use a word or phrase and a short example sentence.")
+        answer, corrected_word = lookup(query)
+        show_result(answer, corrected_word)
+        return 0
+    except Cancelled:
+        return 0
+    except LoginRequired:
+        response = subprocess.run(
+            ["zenity", "--question", "--title=Log in to Antigravity", "--no-markup",
+             "--text=Log in once in the terminal, then repeat your word lookup.",
+             "--ok-label=Log in", "--cancel-label=Cancel"], check=False,
+        )
+        if response.returncode == 0:
+            try:
+                login()
+            except (OSError, RuntimeError) as error:
+                show_error(str(error))
+        return 1
+    except (OSError, RuntimeError, ValueError, binascii.Error) as error:
+        show_error(str(error))
+        return 1
+
+
+def show_error(message: str) -> None:
+    print(message, file=sys.stderr)
+    if shutil.which("zenity"):
+        subprocess.run(["zenity", "--error", "--title=Word lookup", "--no-markup",
+                        "--text", message], check=False)
+
+
+if __name__ == "__main__":
+    sys.exit(main())

@@ -47,6 +47,11 @@ modules:
         - ddccontrol-gtk
         - file-roller-nautilus
         - google-carlito-fonts
+        # Word lookup popup and comment-preserving Raffi configuration.
+        - zenity
+        - python3-ruamel-yaml
+        - xdg-terminal-exec
+        - wl-clipboard
 
   # Desktop Flatpak layer
   - type: default-flatpaks
