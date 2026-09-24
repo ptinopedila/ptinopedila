@@ -140,6 +140,23 @@ addons:
         with zipfile.ZipFile(self.root / "data/ptinopedila/word-lookup.zip") as archive:
             self.assertEqual(archive.read("word-lookup/SKILL.md"), (primary / "SKILL.md").read_bytes())
 
+        # A personal skill may have an epoch timestamp after extraction.
+        primary.unlink()
+        primary.mkdir()
+        personal_skill = primary / "SKILL.md"
+        personal_skill.write_text("personal")
+        os.utime(personal_skill, (0, 0))
+        with patch.object(installer.Path, "home", return_value=self.root), \
+                patch.object(installer.os, "geteuid", return_value=1000), \
+                patch.object(installer.shutil, "which", return_value="/bin/true"), \
+                patch.dict(os.environ, environment), \
+                patch.object(sys, "argv", ["install-word-lookup", "--copy-skill"]):
+            self.assertEqual(installer.main(), 0)
+        with zipfile.ZipFile(self.root / "data/ptinopedila/word-lookup.zip") as archive:
+            self.assertEqual(archive.read("word-lookup/SKILL.md"), b"personal")
+            self.assertEqual(archive.getinfo("word-lookup/SKILL.md").date_time[:3],
+                             (1980, 1, 1))
+
     def test_verified_download_and_repeat_install(self) -> None:
         content = b"#!/bin/sh\nexit 0\n"
         archive = io.BytesIO()
@@ -170,7 +187,8 @@ addons:
         stub = self.root / "installer"
         stub.write_text('#!/bin/sh\nprintf "%s\\n" "$@"\n')
         stub.chmod(0o755)
-        environment = dict(os.environ, PTINOPEDILA_WORD_LOOKUP_INSTALLER=str(stub))
+        environment = dict(os.environ, PTINOPEDILA_WORD_LOOKUP_INSTALLER=str(stub),
+                           XDG_RUNTIME_DIR=str(self.root))
         result = subprocess.run(
             ["just", "--justfile", str(ROOT / "files/shared/usr/share/ublue-os/just/60-custom.just"),
              "install-word-lookup", "--copy-skill"],

@@ -140,7 +140,8 @@ def main() -> int:
         export_dir = Path(os.environ.get("XDG_DATA_HOME", str(user_home / ".local/share"))) / "ptinopedila"
         export_dir.mkdir(parents=True, exist_ok=True)
         archive = export_dir / "word-lookup.zip"
-        with zipfile.ZipFile(archive, "w", zipfile.ZIP_DEFLATED) as bundle:
+        with zipfile.ZipFile(archive, "w", zipfile.ZIP_DEFLATED,
+                             strict_timestamps=False) as bundle:
             for file in sorted(installed_skill.rglob("*")):
                 if file.is_file():
                     bundle.write(file, Path("word-lookup") / file.relative_to(installed_skill))
