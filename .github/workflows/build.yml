@@ -57,6 +57,7 @@ jobs:
           tests/install-conda.sh
           tests/check-optim-upstream.sh
           tests/install-dynare.sh
+          python3 tests/install-deepseek-codex.py
           tests/install-r-vscode.sh
           tests/install-r-workbench.sh
           tests/octave-integration.sh

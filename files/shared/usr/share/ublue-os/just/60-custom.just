@@ -109,6 +109,33 @@ install-dynare:
 
     exec "${INSTALLER}"
 
+# Add or remove the optional DeepSeek Flash profile and agent roles in Codex.
+[arg('uninstall', long='uninstall', value='true')]
+[group('Setup')]
+[positional-arguments]
+install-deepseek-codex uninstall="false":
+    #!/usr/bin/env bash
+    set -euo pipefail
+
+    INSTALLER="${PTINOPEDILA_DEEPSEEK_CODEX_INSTALLER:-/usr/libexec/ptinopedila/install-deepseek-codex}"
+    if [[ $1 == "true" ]]; then
+        exec "${INSTALLER}" --uninstall
+    fi
+    exec "${INSTALLER}"
+
+# Switch the Codex desktop app between DeepSeek Flash and the previous model.
+[group('Setup')]
+deepseek-codex-desktop action:
+    #!/usr/bin/env bash
+    set -euo pipefail
+
+    ACTION={{ quote(action) }}
+    INSTALLER="${PTINOPEDILA_DEEPSEEK_CODEX_INSTALLER:-/usr/libexec/ptinopedila/install-deepseek-codex}"
+    case "$ACTION" in
+        on|off) exec "$INSTALLER" --desktop "$ACTION" ;;
+        *) echo "Usage: ujust deepseek-codex-desktop on|off" >&2; exit 2 ;;
+    esac
+
 # Install Homebrew R and Quarto and configure them for the current user's VS Code.
 [group('Setup')]
 install-r-vscode:

@@ -1,0 +1,385 @@
+#!/usr/bin/env python3
+"""Install an optional DeepSeek Flash profile and agent roles for Codex.
+
+Run with no arguments to install, --desktop on/off to switch the desktop app,
+or --uninstall to remove this setup.
+The DeepSeek API key is stored in GNOME Keyring, never in Codex config files.
+The bundled catalog retains the Flash entry from DeepSeek's Codex setup v1.4.0,
+with Codex's intermediate effort labels added using DeepSeek's documented mapping.
+"""
+
+from __future__ import annotations
+
+import argparse
+import getpass
+import json
+import os
+from pathlib import Path
+import re
+import shutil
+import subprocess
+import sys
+import tempfile
+import tomllib
+
+
+MANAGED = "# Managed by ptinopedila install-deepseek-codex"
+BEGIN = "\n# BEGIN ptinopedila DeepSeek Flash provider"
+END = "# END ptinopedila DeepSeek Flash provider"
+DESKTOP_BEGIN = "# BEGIN ptinopedila DeepSeek Flash desktop\n"
+DESKTOP_END = "# END ptinopedila DeepSeek Flash desktop\n"
+EFFORT_BEGIN = "# BEGIN ptinopedila DeepSeek Flash efforts\n"
+EFFORT_END = "# END ptinopedila DeepSeek Flash efforts\n"
+NEW_SECTION = "# ptinopedila DeepSeek Flash added desktop section\n"
+ORIGINAL = "# ptinopedila DeepSeek original: "
+DESKTOP_KEYS = frozenset({"model", "model_provider", "model_catalog_json", "model_reasoning_effort", "web_search"})
+EFFORTS: dict[str, str] = {
+    "low": "low",
+    "medium": "high",
+    "high": "high",
+    "xhigh": "high",
+    "max": "max",
+    "ultra": "max",
+}
+KEY_ATTRIBUTES = ("application", "codex", "provider", "deepseek")
+
+
+class SetupError(Exception):
+    """A safe-to-report setup failure."""
+
+
+def atomic_write(path: Path, contents: bytes) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    fd, temporary = tempfile.mkstemp(prefix=f".{path.name}.", dir=path.parent)
+    try:
+        os.fchmod(fd, 0o600)
+        with os.fdopen(fd, "wb") as output:
+            output.write(contents)
+        os.replace(temporary, path)
+    finally:
+        if os.path.exists(temporary):
+            os.unlink(temporary)
+
+
+def load_catalog(source: Path) -> bytes:
+    try:
+        contents = source.read_bytes()
+        models = json.loads(contents)["models"]
+    except (OSError, ValueError, KeyError, TypeError) as error:
+        raise SetupError(f"Cannot load the bundled model catalog: {error}") from error
+    if len(models) != 1 or models[0].get("slug") != "deepseek-flash":
+        raise SetupError("The bundled catalog must contain only deepseek-flash")
+    levels = {level["effort"] for level in models[0]["supported_reasoning_levels"]}
+    if levels != set(EFFORTS):
+        raise SetupError(f"Unexpected reasoning levels in the bundled catalog: {sorted(levels)}")
+    return contents
+
+
+def remove_managed_block(config: str) -> tuple[str, bool]:
+    if config.count(BEGIN) != config.count(END) or config.count(BEGIN) > 1:
+        raise SetupError("Codex config has incomplete or duplicate DeepSeek markers")
+    if BEGIN not in config:
+        return config, False
+    start = config.index(BEGIN)
+    end = config.index(END, start) + len(END)
+    if end < len(config) and config[end] == "\n":
+        end += 1
+    return config[:start] + config[end:], True
+
+
+def parse_config(contents: str) -> dict[str, object]:
+    try:
+        return tomllib.loads(contents)
+    except tomllib.TOMLDecodeError as error:
+        raise SetupError(f"Codex config is not valid TOML: {error}") from error
+
+
+def remove_desktop_settings(config: str) -> tuple[str, bool]:
+    markers = (DESKTOP_BEGIN, DESKTOP_END, EFFORT_BEGIN, EFFORT_END)
+    counts = [config.count(marker) for marker in markers]
+    if counts == [0, 0, 0, 0]:
+        if ORIGINAL in config or NEW_SECTION in config:
+            raise SetupError("Codex config has incomplete DeepSeek desktop markers")
+        return config, False
+    if counts != [1, 1, 1, 1]:
+        raise SetupError("Codex config has incomplete or duplicate DeepSeek desktop markers")
+    begin = config.index(DESKTOP_BEGIN)
+    if config.find(DESKTOP_END, begin) < 0:
+        raise SetupError("Codex config has misplaced DeepSeek desktop markers")
+    end = config.index(DESKTOP_END, begin) + len(DESKTOP_END)
+    config = config[:begin] + config[end:]
+    begin = config.index(EFFORT_BEGIN)
+    if config.find(EFFORT_END, begin) < 0:
+        raise SetupError("Codex config has misplaced DeepSeek effort markers")
+    end = config.index(EFFORT_END, begin) + len(EFFORT_END)
+    new_section_prefix = "\n" + NEW_SECTION + "[desktop]\n"
+    if config[:begin].endswith(new_section_prefix):
+        begin -= len(new_section_prefix)
+    elif NEW_SECTION in config:
+        raise SetupError("Codex config has misplaced DeepSeek desktop section")
+    config = config[:begin] + config[end:]
+    config = re.sub(r"(?m)^" + re.escape(ORIGINAL) + r"(.*)$", r"\1", config)
+    return config, True
+
+
+def desktop_settings(config: str, catalog_path: Path) -> str:
+    base, _ = remove_desktop_settings(config)
+    parsed = parse_config(base)
+    if "deepseek" not in parsed.get("model_providers", {}):
+        raise SetupError("Install DeepSeek for Codex before enabling the desktop model")
+    if not catalog_path.is_file():
+        raise SetupError(f"DeepSeek model catalog is missing: {catalog_path}")
+    load_catalog(catalog_path)
+
+    lines = base.splitlines(keepends=True)
+    section = ""
+    has_desktop = False
+    for index, line in enumerate(lines):
+        stripped = line.strip()
+        if stripped.startswith("[") and "]" in stripped:
+            section = stripped.split("]", 1)[0] + "]"
+            has_desktop = has_desktop or section == "[desktop]"
+        match = re.match(r"^([ \t]*)([A-Za-z0-9_-]+)([ \t]*=)", line)
+        if match and ((not section and match.group(2) in DESKTOP_KEYS)
+                      or (section == "[desktop]" and match.group(2) == "enabled-reasoning-efforts")):
+            lines[index] = ORIGINAL + line
+    base = "".join(lines)
+    top = DESKTOP_BEGIN + (
+        'model = "deepseek-flash"\n'
+        'model_provider = "deepseek"\n'
+        f"model_catalog_json = {json.dumps(str(catalog_path))}\n"
+        'model_reasoning_effort = "high"\n'
+        'web_search = "disabled"\n'
+    ) + DESKTOP_END
+    efforts = (EFFORT_BEGIN
+               + 'enabled-reasoning-efforts = ["low", "medium", "high", "xhigh", "max", "ultra"]\n'
+               + EFFORT_END)
+    if has_desktop:
+        match = re.search(r"(?m)^[ \t]*\[desktop\][ \t]*(?:#.*)?\n", base)
+        if not match:
+            raise SetupError("Cannot find the existing [desktop] section")
+        base = base[:match.end()] + efforts + base[match.end():]
+    else:
+        base += "\n" + NEW_SECTION + "[desktop]\n" + efforts
+    result = top + base
+    parse_config(result)
+    return result
+
+
+def provider_block(secret_tool: str) -> str:
+    return (
+        f"{BEGIN}\n"
+        "[model_providers.deepseek]\n"
+        'name = "DeepSeek"\n'
+        'base_url = "https://api.deepseek.com/"\n'
+        'wire_api = "responses"\n\n'
+        "[model_providers.deepseek.auth]\n"
+        f"command = {json.dumps(secret_tool)}\n"
+        f"args = {json.dumps(['lookup', *KEY_ATTRIBUTES])}\n"
+        f"{END}\n"
+    )
+
+
+def profile_contents(catalog_path: Path) -> bytes:
+    return (
+        f"{MANAGED}\n"
+        'model = "deepseek-flash"\n'
+        'model_provider = "deepseek"\n'
+        f"model_catalog_json = {json.dumps(str(catalog_path))}\n"
+        'model_reasoning_effort = "high"\n'
+        'web_search = "disabled"\n'
+    ).encode()
+
+
+def agent_contents(catalog_path: Path, effort: str, actual_effort: str) -> bytes:
+    description = (
+        f"Use DeepSeek V4.1 Flash at Codex {effort} reasoning effort "
+        f"(DeepSeek {actual_effort}) for a parallel task."
+    )
+    return (
+        f"{MANAGED}\n"
+        f'name = "deepseek_flash_{effort}"\n'
+        f"description = {json.dumps(description)}\n"
+        'developer_instructions = "Complete the assigned task and report concrete findings to the parent agent."\n'
+        'model = "deepseek-flash"\n'
+        'model_provider = "deepseek"\n'
+        f"model_catalog_json = {json.dumps(str(catalog_path))}\n"
+        f'model_reasoning_effort = "{effort}"\n'
+        'web_search = "disabled"\n'
+    ).encode()
+
+
+def owned_toml(path: Path) -> bool:
+    return path.is_file() and path.read_text(encoding="utf-8").startswith(MANAGED + "\n")
+
+
+def get_key() -> str:
+    environment_key = os.environ.get("DEEPSEEK_API_KEY")
+    if environment_key:
+        return environment_key
+
+    zenity = shutil.which("zenity")
+    has_display = bool(os.environ.get("DISPLAY") or os.environ.get("WAYLAND_DISPLAY"))
+    is_remote = bool(os.environ.get("SSH_TTY") or os.environ.get("SSH_CONNECTION"))
+    if zenity and has_display and not is_remote:
+        try:
+            result = subprocess.run(
+                [zenity, "--password", "--title=DeepSeek API key for Codex"],
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+        except OSError:
+            result = None
+        if result is not None and result.returncode == 0:
+            return result.stdout.rstrip("\n")
+        if result is not None and result.returncode == 1:
+            raise SetupError("API key entry was cancelled")
+        print("Zenity is unavailable; using the terminal prompt.", file=sys.stderr)
+
+    try:
+        with open("/dev/tty", "w", encoding="utf-8") as terminal:
+            return getpass.getpass("DeepSeek API key: ", stream=terminal)
+    except OSError as error:
+        raise SetupError("No usable graphical dialog or terminal is available for the API key") from error
+
+
+def ensure_key(secret_tool: str) -> None:
+    lookup = subprocess.run(
+        [secret_tool, "lookup", *KEY_ATTRIBUTES],
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+        check=False,
+    )
+    if lookup.returncode == 0:
+        print("DeepSeek API key is already in GNOME Keyring.")
+        return
+
+    key = get_key()
+    if not key.startswith("sk-"):
+        raise SetupError("The DeepSeek API key must start with sk-")
+    stored = subprocess.run(
+        [secret_tool, "store", "--label=DeepSeek for Codex", *KEY_ATTRIBUTES],
+        input=key,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    del key
+    if stored.returncode != 0:
+        message = stored.stderr.strip() or "GNOME Keyring is unavailable"
+        raise SetupError(f"Could not store the API key: {message}")
+    print("Stored the API key in GNOME Keyring.")
+
+
+def install(codex_home: Path, source: Path) -> None:
+    if not codex_home.is_dir():
+        raise SetupError(f"Codex home does not exist: {codex_home}")
+    secret_tool = shutil.which("secret-tool")
+    if not secret_tool:
+        raise SetupError("secret-tool is required for GNOME Keyring authentication")
+
+    catalog = load_catalog(source)
+    config_path = codex_home / "config.toml"
+    original = config_path.read_text(encoding="utf-8") if config_path.exists() else ""
+    base, installed = remove_managed_block(original)
+    parsed = parse_config(base)
+    if "deepseek" in parsed.get("model_providers", {}):
+        raise SetupError("An unmanaged [model_providers.deepseek] already exists; no files changed")
+
+    catalog_path = codex_home / "deepseek-flash-models.json"
+    profile_path = codex_home / "deepseek-flash.config.toml"
+    role_paths = [codex_home / "agents" / f"deepseek-flash-{effort}.toml" for effort in EFFORTS]
+    for path in [profile_path, *role_paths]:
+        if path.exists() and not owned_toml(path):
+            raise SetupError(f"Refusing to overwrite an unmanaged file: {path}")
+    if catalog_path.exists() and not (installed or owned_toml(profile_path)):
+        raise SetupError(f"Refusing to overwrite an unmanaged model catalog: {catalog_path}")
+
+    new_config = base + provider_block(secret_tool)
+    parse_config(new_config)
+    generated = {profile_path: profile_contents(catalog_path)}
+    generated.update(
+        {path: agent_contents(catalog_path, effort, EFFORTS[effort])
+         for path, effort in zip(role_paths, EFFORTS, strict=True)}
+    )
+    for path, contents in generated.items():
+        parse_config(contents.decode())
+
+    ensure_key(secret_tool)
+    backup_path = codex_home / "config.toml.before-deepseek-flash-installer"
+    if not installed and config_path.exists() and not backup_path.exists():
+        atomic_write(backup_path, original.encode())
+    atomic_write(catalog_path, catalog)
+    for path, contents in generated.items():
+        atomic_write(path, contents)
+    atomic_write(config_path, new_config.encode())
+    print(f"Installed optional DeepSeek Flash profile in {codex_home}.")
+    print("Run: codex --profile deepseek-flash")
+    print("For the desktop app: ujust deepseek-codex-desktop on (or off to restore).")
+    print("Available Codex efforts: " + ", ".join(EFFORTS))
+
+
+def uninstall(codex_home: Path, source: Path) -> None:
+    config_path = codex_home / "config.toml"
+    original = config_path.read_text(encoding="utf-8") if config_path.exists() else ""
+    without_desktop, _ = remove_desktop_settings(original)
+    base, installed = remove_managed_block(without_desktop)
+    parse_config(base)
+    profile_path = codex_home / "deepseek-flash.config.toml"
+    catalog_path = codex_home / "deepseek-flash-models.json"
+    owned_profile = owned_toml(profile_path)
+    if installed:
+        atomic_write(config_path, base.encode())
+    if owned_profile:
+        profile_path.unlink()
+    for effort in EFFORTS:
+        path = codex_home / "agents" / f"deepseek-flash-{effort}.toml"
+        if owned_toml(path):
+            path.unlink()
+    if catalog_path.exists() and (installed or owned_profile):
+        if catalog_path.read_bytes() == load_catalog(source):
+            catalog_path.unlink()
+        else:
+            print(f"Kept modified model catalog: {catalog_path}")
+    print("Removed the installer-managed DeepSeek configuration.")
+    print("The GNOME Keyring entry and original-config backup were kept.")
+
+
+def set_desktop(codex_home: Path, action: str) -> None:
+    config_path = codex_home / "config.toml"
+    original = config_path.read_text(encoding="utf-8")
+    if action == "on":
+        updated = desktop_settings(original, codex_home / "deepseek-flash-models.json")
+    else:
+        updated, _ = remove_desktop_settings(original)
+        parse_config(updated)
+    if updated != original:
+        atomic_write(config_path, updated.encode())
+    print(f"DeepSeek Flash desktop mode is {action}. Restart Codex to apply it.")
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--uninstall", action="store_true", help="remove only installer-managed files")
+    parser.add_argument("--desktop", choices=("on", "off"), help="switch the Codex desktop model")
+    args = parser.parse_args()
+    if args.uninstall and args.desktop:
+        parser.error("--uninstall and --desktop cannot be combined")
+    codex_home = Path(os.environ.get("CODEX_HOME", "~/.codex")).expanduser().resolve()
+    source = Path(__file__).with_name("deepseek-flash-models.json")
+    try:
+        if args.uninstall:
+            uninstall(codex_home, source)
+        elif args.desktop:
+            set_desktop(codex_home, args.desktop)
+        else:
+            install(codex_home, source)
+    except (SetupError, OSError) as error:
+        print(f"Error: {error}", file=sys.stderr)
+        return 1
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
