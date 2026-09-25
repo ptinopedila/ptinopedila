@@ -109,7 +109,7 @@ install-dynare:
 
     exec "${INSTALLER}"
 
-# Add or remove the optional DeepSeek Flash profile and agent roles in Codex.
+# Install DeepSeek Flash for CLI profiles and agent roles; desktop use has a separate switch.
 [arg('uninstall', long='uninstall', value='true')]
 [group('Setup')]
 [positional-arguments]
@@ -123,7 +123,7 @@ install-deepseek-codex uninstall="false":
     fi
     exec "${INSTALLER}"
 
-# Switch the Codex desktop app between DeepSeek Flash and the previous model.
+# Switch the global Codex provider: on shows only DeepSeek Flash; off restores the previous picker.
 [group('Setup')]
 deepseek-codex-desktop action:
     #!/usr/bin/env bash
