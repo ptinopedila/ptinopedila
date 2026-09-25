@@ -62,6 +62,8 @@ if [[ -n ${PTINOPEDILA_CODE_COMMAND:-} ]]; then
     code_command=$PTINOPEDILA_CODE_COMMAND
 elif command -v code >/dev/null 2>&1; then
     code_command=$(command -v code)
+elif [[ -x ${brew_command%/*}/code ]]; then
+    code_command=${brew_command%/*}/code
 else
     echo "VS Code is required for this recipe." >&2
     exit 1
@@ -76,7 +78,7 @@ if [[ ! -x $code_command ]]; then
     exit 1
 fi
 
-for required_command in env grep mkdir; do
+for required_command in env grep mkdir pkg-config; do
     if ! command -v "$required_command" >/dev/null 2>&1; then
         echo "Required command not found: $required_command" >&2
         exit 1
@@ -97,8 +99,17 @@ else
     "$brew_command" install --cask quarto
 fi
 
+for formula in cairo xorgproto; do
+    if "$brew_command" list --formula "$formula" >/dev/null 2>&1; then
+        continue
+    fi
+    echo "Installing $formula with Homebrew..."
+    "$brew_command" install "$formula"
+done
+
 r_prefix=$($brew_command --prefix r)
 brew_prefix=$($brew_command --prefix)
+xorgproto_prefix=$($brew_command --prefix xorgproto)
 r_command="$r_prefix/bin/R"
 quarto_command="$brew_prefix/bin/quarto"
 
@@ -108,6 +119,16 @@ if [[ $r_prefix != /* || ! -d $r_prefix || ! -x $r_command ]]; then
 fi
 if [[ $brew_prefix != /* || ! -d $brew_prefix || ! -x $quarto_command ]]; then
     echo "Homebrew Quarto was not found at the expected path: $quarto_command" >&2
+    exit 1
+fi
+if [[ $xorgproto_prefix != /* || ! -d $xorgproto_prefix/share/pkgconfig ]]; then
+    echo "Homebrew xorgproto pkg-config files were not found: $xorgproto_prefix/share/pkgconfig" >&2
+    exit 1
+fi
+
+pkg_config_path="$brew_prefix/lib/pkgconfig:$xorgproto_prefix/share/pkgconfig${PKG_CONFIG_PATH:+:$PKG_CONFIG_PATH}"
+if ! env PKG_CONFIG_PATH="$pkg_config_path" pkg-config --exists cairo-ft freetype2; then
+    echo "Homebrew Cairo and FreeType build metadata could not be resolved by pkg-config." >&2
     exit 1
 fi
 
@@ -130,8 +151,22 @@ r_package_expression+=')'
 
 echo "Installing missing shared R workflow packages..."
 env R_LIBS_USER="$r_user_library" \
+    PKG_CONFIG_PATH="$pkg_config_path" \
     "$r_command" --vanilla --slave -e \
     "packages <- $r_package_expression; missing <- packages[!vapply(packages, requireNamespace, logical(1), quietly = TRUE)]; if (length(missing)) install.packages(missing, lib = Sys.getenv('R_LIBS_USER'), repos = 'https://cloud.r-project.org'); stopifnot(all(vapply(packages, requireNamespace, logical(1), quietly = TRUE)))"
+
+cairo_renderers='c("png", "pdf", "eps", "ps")'
+if ! env R_LIBS_USER="$r_user_library" \
+    "$r_command" --vanilla --slave -e \
+    "quit(status = as.integer(!all($cairo_renderers %in% unigd::ugd_renderers()\$id)))"; then
+    echo "Rebuilding unigd with Cairo plot renderers..."
+    env R_LIBS_USER="$r_user_library" PKG_CONFIG_PATH="$pkg_config_path" \
+        "$r_command" --vanilla --slave -e \
+        'install.packages("unigd", lib = Sys.getenv("R_LIBS_USER"), repos = "https://cloud.r-project.org", type = "source")'
+fi
+env R_LIBS_USER="$r_user_library" \
+    "$r_command" --vanilla --slave -e \
+    "stopifnot(all($cairo_renderers %in% unigd::ugd_renderers()\$id))"
 
 installed_extensions=$($code_command --list-extensions)
 install_extension() {
