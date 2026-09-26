@@ -95,7 +95,14 @@ elif [[ $* == *'install.packages'* ]]; then
         printf '%s\n' cairo > "$UNIGD_STATE"
     fi
 elif [[ $* == *'Sys.getenv("R_LIBS_USER")'* ]]; then
-    printf '%s' "$R_USER_LIBRARY"
+    if [[ -n ${R_USER_LIBRARY:-} ]]; then
+        printf '%s' "$R_USER_LIBRARY"
+    else
+        library=${R_LIBS_USER:-$HOME/R/test-platform-library/4.6}
+        library=${library//%p/test-platform}
+        library=${library//%v/4.6}
+        printf '%s' "$library"
+    fi
 fi
 EOF
 
@@ -155,7 +162,7 @@ run_recipe() {
         R_LOG="$r_log" \
         R_PKG_CONFIG_PATH_LOG="$runtime_directory/r-pkg-config-path.log" \
         R_PREFIX="$r_prefix" \
-        R_USER_LIBRARY="$r_user_library" \
+        R_USER_LIBRARY="${2-$r_user_library}" \
         UNIGD_LOG="$unigd_log" \
         UNIGD_STATE="$unigd_state" \
         XORGPROTO_PREFIX="$xorgproto_prefix" \
@@ -200,6 +207,16 @@ run_recipe "$plain_home"
 [[ $(grep -Fxc rebuilt "$unigd_log") -eq 1 ]]
 [[ $(grep -Fxc 'install --cask quarto' "$brew_log") -eq 1 ]]
 [[ $(wc -l < "$code_log") -eq 2 ]]
+
+# An SSH session without shell startup files must choose the XDG R library.
+ssh_home="$runtime_directory/ssh-home"
+mkdir -p "$ssh_home"
+(
+    unset R_LIBS_USER XDG_DATA_HOME
+    run_recipe "$ssh_home" ""
+)
+[[ -d $ssh_home/.local/share/R/test-platform-library/4.6 ]]
+[[ ! -e $ssh_home/R ]]
 
 # A minimal SSH PATH can still find VS Code beside the Homebrew executable.
 ssh_path="$runtime_directory/ssh-path"

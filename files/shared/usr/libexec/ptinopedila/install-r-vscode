@@ -132,6 +132,9 @@ if ! env PKG_CONFIG_PATH="$pkg_config_path" pkg-config --exists cairo-ft freetyp
     exit 1
 fi
 
+if [[ -z ${R_LIBS_USER:-} ]]; then
+    export R_LIBS_USER="${XDG_DATA_HOME:-$HOME/.local/share}/R/%p-library/%v"
+fi
 r_user_library=$(
     "$r_command" --vanilla --slave -e \
         'paths <- strsplit(path.expand(Sys.getenv("R_LIBS_USER")), .Platform$path.sep, fixed = TRUE)[[1]]; cat(paths[[1]])'
