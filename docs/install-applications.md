@@ -1,5 +1,5 @@
 > **Created:** `2026-08-26T05:43+03:00` · **Last updated:**
-> `2026-08-26T05:43+03:00`
+> `2026-10-29T09:28+02:00`
 
 # Install and manage applications
 
@@ -66,6 +66,19 @@ Homebrew casks are not the normal way to install graphical Linux applications
 on Ptinopedila; use Flatpak instead.
 
 ## Updates
+
+Ptinopedila builds daily at 04:00 Athens time, with daylight saving adjustment.
+Each image build refreshes repository metadata and upgrades installed RPMs
+from enabled repositories, subject to dependency constraints, repository
+exclusions, and version locks.
+The upgrade command excludes Bluefin's kernel, external modules, matched NVIDIA
+driver packages, and any inherited ZFS packages and their companion libraries.
+These exclusions retain the versions supplied by the base image.
+They do not select newer compatible combinations.
+Fixes for excluded packages arrive through newer Bluefin base images.
+NVIDIA container tooling, GPU firmware, `kernel-tools`, `kernel-headers`, and
+the `kmod` utility remain eligible for upgrades.
+The exclusions apply only to the build's upgrade command.
 
 When the computer is connected to AC power and its hardware and network checks
 pass, Ptinopedila automatically checks for and installs system-image, Flatpak,

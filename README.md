@@ -22,6 +22,21 @@ stream:
 | `ptinopedila-home` | Systems using the standard Bluefin image |
 | `ptinopedila-home-nvidia` | Systems requiring Bluefin's NVIDIA image |
 
+Both images are scheduled to build daily at 04:00 in `Europe/Athens`,
+with automatic adjustment for daylight saving time.
+GitHub Actions may delay the start, and images are published after a successful build.
+
+Each build upgrades installed RPM packages from the enabled repositories,
+subject to dependency constraints, repository exclusions, and version locks.
+Bluefin's kernel, external kernel modules, and matched NVIDIA driver packages
+stay at the versions supplied by the base image to preserve their compatibility.
+Any inherited ZFS packages and their companion libraries stay matched too.
+These exclusions apply to the build's upgrade command.
+Excluded packages receive fixes through newer Bluefin base images.
+NVIDIA container tooling, GPU firmware, `kernel-tools`, and `kernel-headers`
+remain eligible for upgrades.
+Homebrew and Flatpak applications update separately on the installed system.
+
 ## Documentation
 
 This project is based on [Universal Blue](https://universal-blue.org/) and

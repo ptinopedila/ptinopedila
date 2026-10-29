@@ -1,7 +1,8 @@
 name: bluebuild
 on:
   schedule:
-    - cron: "00 8 * * sun" # 08:00 UTC every Sunday (4 hours after last bluefin images start building)
+    - cron: "0 4 * * *" # 04:00 Athens time every day, including daylight saving changes
+      timezone: "Europe/Athens"
 
   push:
     paths-ignore: # don't rebuild if only documentation has changed
@@ -119,7 +120,7 @@ jobs:
       - name: Check whether this is the first scheduled build of the month
         id: monthly
         run: |
-          if (( 10#$(date -u +%d) <= 7 )); then
+          if [[ $(TZ=Europe/Athens date +%d) == 01 ]]; then
             echo "due=true" >> "$GITHUB_OUTPUT"
           else
             echo "due=false" >> "$GITHUB_OUTPUT"

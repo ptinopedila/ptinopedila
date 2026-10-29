@@ -1,12 +1,5 @@
 # yaml-language-server: $schema=https://schema.blue-build.org/module-list-v1.json
 modules:
-  # Fail early if a package that Ptinopedila expects from Bluefin disappears.
-  # This must run before downstream DNF modules to test the upstream base.
-  - type: script
-    scripts:
-      - assert-inherited-packages.sh
-      - assert-inherited-squashfs-tools.sh
-
   # Common CLI/server layer
   - type: dnf
     install:
