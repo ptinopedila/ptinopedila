@@ -3,7 +3,7 @@
 # Category: Foundation
 # Install policy: automatic
 
-tap "chmouel/raffi", trusted: true
+tap "chmouel/raffi", "https://github.com/chmouel/raffi", trusted: true
 
 brew "bat"
 brew "btop"
