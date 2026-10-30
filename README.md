@@ -71,39 +71,39 @@ Ptinopedila-specific guides:
 
 > [!IMPORTANT]
 > Switching to Ptinopedila changes the system-wide Flatpak configuration.
-> Ptinopedila uses BlueBuild's `default-flatpaks` module, which removes the
-> Fedora Flatpak remote by default, configures Flathub, and installs
-> Ptinopedila's configured applications automatically.
+> Bluefin removes the Fedora Flatpak remote and configures Flathub.
+> Ptinopedila installs its default applications through `flatpak preinstall`.
 
 <details>
 <summary>How Ptinopedila manages Flatpaks</summary>
 
-The Flatpak setup runs on the first boot and checks the configuration again on
-subsequent boots. Missing applications from Ptinopedila's
-[system Flatpak list](recipes/common_modules/workstation.yml) are installed
-system-wide.
+Bluefin's `flatpak-preinstall.service` runs on each boot. It reads
+Ptinopedila's [main defaults](files/shared/usr/share/flatpak/preinstall.d/ptinopedila.preinstall)
+and [home variant defaults](files/home/usr/share/flatpak/preinstall.d/ptinopedila-home.preinstall),
+then installs missing applications from Flathub. For an application installed by
+this service, Flatpak remembers if you uninstall it and does not reinstall it.
 
-The current `default-flatpaks` v2 module does not automatically uninstall
-existing Flatpak applications. This differs from v1, which removed Flatpaks
-installed from Fedora when replacing that remote. Nevertheless, inspect any
-existing system Flatpaks before switching because the Fedora remote that
-provided them will no longer be configured by default:
+When Ptinopedila removes an application from its default list, Flatpak may
+also remove an application that it preinstalled. Applications previously
+installed by BlueBuild are not automatically adopted into Flatpak's
+preinstalled set. For those applications, uninstalling alone may not opt out;
+add a local `Install=false` override first. See the
+[application guide](docs/install-applications.md#customize-preinstalled-flatpaks).
+Inspect any existing system Flatpaks before switching because Bluefin removes
+the Fedora remote that may provide some of them:
 
 ```sh
 flatpak list --system --app --columns=application,origin
 ```
 
-BlueBuild provides `bluebuild-flatpak-manager` for inspecting the image's
-configuration, running the setup manually, and disabling or re-enabling the
-automatic setup. Run the following command for its available operations:
+To check the service after switching, run:
 
 ```sh
-bluebuild-flatpak-manager --help
+systemctl status flatpak-preinstall.service
 ```
 
-See BlueBuild's
-[`default-flatpaks` documentation](https://blue-build.org/reference/modules/default-flatpaks/)
-for the current module behavior.
+See the [Flatpak preinstall documentation](https://docs.flatpak.org/en/latest/flatpak-command-reference.html#flatpak-preinstall)
+for the application-list and opt-out behavior.
 
 </details>
 

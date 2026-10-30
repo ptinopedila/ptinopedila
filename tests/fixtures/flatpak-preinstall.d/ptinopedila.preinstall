@@ -1,0 +1,13 @@
+[Flatpak Preinstall org.example.SystemApp]
+Branch=stable
+
+[Flatpak Preinstall org.example.SharedApp]
+Branch=stable
+
+[Flatpak Preinstall org.example.DisabledApp]
+Branch=stable
+Install=false
+
+[Flatpak Preinstall org.example.Runtime]
+Branch=stable
+IsRuntime=true

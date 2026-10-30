@@ -15,6 +15,10 @@ modules:
       - assert-inherited-nvidia-container-toolkit.sh
   - from-file: common_modules/upgrade-image-packages.yml
   - from-file: common_modules/bluefin-remove-dconf.yml
+  - type: files
+    files:
+      - source: home
+        destination: /
   - from-file: common_modules/workstation.yml
   - from-file: common_modules/secureblue.yml
   - from-file: common_modules/image-info.yml

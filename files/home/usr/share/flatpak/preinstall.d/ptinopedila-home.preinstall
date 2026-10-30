@@ -1,0 +1,22 @@
+# System Flatpak defaults for ptinopedila-home and ptinopedila-home-nvidia.
+
+# Desktop and system utilities
+[Flatpak Preinstall ca.desrt.dconf-editor]
+Branch=stable
+
+[Flatpak Preinstall io.github.pwr_solaar.solaar]
+Branch=stable
+
+[Flatpak Preinstall org.gnome.SoundRecorder]
+Branch=stable
+
+# Graphics and fonts
+[Flatpak Preinstall org.gustavoperedo.FontDownloader]
+Branch=stable
+
+# Development and containers
+[Flatpak Preinstall io.github.getnf.embellish]
+Branch=stable
+
+[Flatpak Preinstall io.podman_desktop.PodmanDesktop]
+Branch=stable

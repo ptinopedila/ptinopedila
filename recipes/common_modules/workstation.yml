@@ -31,6 +31,7 @@ modules:
       - validate-zsh.sh
       - assert-brew-preinstall.sh
       - enable-brew-preinstall.sh
+      - enable-flatpak-preinstall.sh
 
   # Desktop RPM layer
   - type: dnf
@@ -46,60 +47,7 @@ modules:
         - xdg-terminal-exec
         - wl-clipboard
 
-  # Desktop Flatpak layer
-  - type: default-flatpaks
-    configurations:
-      - scope: system
-        # notify: false
-        install:
-          # System and image management
-          - io.gitlab.adhami3310.Impression
-          - io.github.flattool.Ignition
-          - com.github.tchx84.Flatseal
-          - io.github.flattool.Warehouse
-          - io.missioncenter.MissionCenter
-          - io.github.pwr_solaar.solaar
-          - page.tesk.Refine
-          - org.gnome.Firmware
-
-          # Web, communication, media, and graphics
-          - be.alexandervanhee.gradia
-          - org.gnome.Decibels
-          - org.gnome.Showtime
-          - org.mozilla.firefox
-          - org.mozilla.thunderbird
-          - org.gustavoperedo.FontDownloader
-          - com.github.PintaProject.Pinta
-
-          # GNOME desktop applications
-          - ca.desrt.dconf-editor
-          - com.mattjakeman.ExtensionManager
-          - org.gnome.baobab
-          - org.gnome.Calculator
-          - org.gnome.Calendar
-          - org.gnome.Characters
-          - org.gnome.clocks
-          - org.gnome.Connections
-          - org.gnome.Contacts
-          - org.gnome.font-viewer
-          - org.gnome.gThumb
-          - org.gnome.Logs
-          - org.gnome.Loupe
-          - org.gnome.Maps
-          - org.gnome.NautilusPreviewer
-          - org.gnome.Papers
-          - org.gnome.SimpleScan
-          - org.gnome.Snapshot
-          - org.gnome.SoundRecorder
-          - org.gnome.TextEditor
-          - org.gnome.Weather
-
-          # Development and containers
-          - io.podman_desktop.PodmanDesktop
-          - io.github.getnf.embellish
-          - me.iepure.devtoolbox
-
-  # Record the compiled default-flatpaks configuration for package-audit.
+  # Record the native Flatpak preinstall list for package-audit.
   - type: script
     scripts:
-      - build-managed-flatpak-list.sh
+      - build-managed-flatpak-list.py

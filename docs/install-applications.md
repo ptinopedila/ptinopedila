@@ -1,5 +1,5 @@
 > **Created:** `2026-08-26T05:43+03:00` · **Last updated:**
-> `2026-10-29T09:28+02:00`
+> `2026-10-30T04:37+02:00`
 
 # Install and manage applications
 
@@ -30,6 +30,11 @@ from the terminal, run:
 flatpak list --system --app
 ```
 
+The [main application list](../files/shared/usr/share/flatpak/preinstall.d/ptinopedila.preinstall)
+and [home variant defaults](../files/home/usr/share/flatpak/preinstall.d/ptinopedila-home.preinstall)
+use Flatpak preinstall. You can change these defaults for your own computer
+without editing the image-managed list; see [Customize preinstalled Flatpaks](#customize-preinstalled-flatpaks).
+
 To search Flathub and install another application system-wide from the
 terminal, use its application ID:
 
@@ -42,8 +47,50 @@ The installation may request administrator authentication. Bazaar is usually
 more convenient when the application ID is not already known.
 
 When switching from Fedora or another image, first read the
-[Flatpak migration warning](../README.md#installation). Ptinopedila configures
+[Flatpak migration warning](../README.md#installation). Bluefin configures
 Flathub and removes the Fedora Flatpak remote by default.
+
+### Customize preinstalled Flatpaks
+
+Create a local preinstall file in `/etc/flatpak/preinstall.d/`. It survives
+image updates and takes priority over Ptinopedila's list in `/usr/share`.
+Create the directory and open the file as an administrator:
+
+```sh
+sudo install -d -m 0755 /etc/flatpak/preinstall.d
+sudoedit /etc/flatpak/preinstall.d/99-local.preinstall
+```
+
+To **exclude** an image default, add a group with its application ID:
+
+```ini
+[Flatpak Preinstall APPLICATION_ID]
+Install=false
+```
+
+If it is already installed, remove it with
+`flatpak uninstall --system APPLICATION_ID`. Add the override before removing
+an app installed under the earlier BlueBuild setup: those installations are not
+automatically recorded as Flatpak preinstall opt-outs. An app installed by
+Flatpak preinstall normally stays opted out when you uninstall it, even without
+an override.
+
+To **add** an application to your local defaults, add another group to the same
+file:
+
+```ini
+[Flatpak Preinstall ANOTHER_APPLICATION_ID]
+Branch=stable
+```
+
+Replace the example IDs with real Flatpak application IDs. Check the app and
+its branch with `flatpak remote-info --system --show-ref flathub APPLICATION_ID`;
+use the branch at the end of the returned ref instead of `stable` if needed.
+Add one group per app. The new default is applied on the next boot, provided
+the Flathub remote is available. To apply all preinstall files immediately,
+run `sudo flatpak preinstall -y`; this also reconciles any other defaults and
+exclusions in those files. Uninstalling an app that Flatpak preinstall added
+opts out of that default.
 
 ## Install command-line applications with Homebrew
 
