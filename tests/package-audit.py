@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import csv
 import importlib.machinery
 import importlib.util
 import io
@@ -365,6 +366,134 @@ class PackageAuditTests(unittest.TestCase):
             self.assertTrue((temporary_path / "package-audit.md").is_file())
             self.assertTrue(custom_output.is_file())
 
+    def test_csv_directory_writes_separate_tables(self) -> None:
+        audits = {
+            "Desktop, main": self.module.ComputerAudit(
+                homebrew={("brew", "jq"), ("cask", "example,app")},
+                flatpaks={("user", "md.obsidian.Obsidian")},
+                layered_rpms={"example-rpm"},
+                gnome_extensions={"example@gnome.org": False},
+            ),
+            "Laptop": self.module.ComputerAudit(
+                homebrew={("brew", "jq")},
+                flatpaks=set(),
+                layered_rpms=set(),
+                gnome_extensions=None,
+            ),
+        }
+
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            output_dir = Path(temporary_directory) / "reports"
+            self.module.write_csv_reports(audits, output_dir)
+            self.assertEqual(
+                {path.name for path in output_dir.iterdir()},
+                {
+                    "homebrew.csv",
+                    "flatpaks.csv",
+                    "gnome-extensions.csv",
+                    "layered-rpms.csv",
+                },
+            )
+
+            def read_csv(filename: str) -> list[list[str]]:
+                with (output_dir / filename).open(
+                    encoding="utf-8", newline=""
+                ) as source:
+                    return list(csv.reader(source))
+
+            self.assertEqual(
+                read_csv("homebrew.csv"),
+                [
+                    ["Type", "Package", "Desktop, main", "Laptop"],
+                    ["Formula", "jq", "installed", "installed"],
+                    ["Cask", "example,app", "installed", "not installed"],
+                ],
+            )
+            self.assertEqual(
+                read_csv("flatpaks.csv"),
+                [
+                    ["Scope", "Application", "Desktop, main", "Laptop"],
+                    ["User", "md.obsidian.Obsidian", "installed", "not installed"],
+                ],
+            )
+            self.assertEqual(
+                read_csv("gnome-extensions.csv"),
+                [
+                    ["Extension", "Desktop, main", "Laptop"],
+                    ["example@gnome.org", "disabled", "unavailable"],
+                ],
+            )
+            self.assertEqual(
+                read_csv("layered-rpms.csv"),
+                [
+                    ["Package", "Desktop, main", "Laptop"],
+                    ["example-rpm", "installed", "not installed"],
+                ],
+            )
+
+    def test_csv_directory_skips_unavailable_flatpak_audit(self) -> None:
+        audit = self.module.ComputerAudit(set(), set(), set(), None)
+
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            output_dir = Path(temporary_directory) / "reports"
+            self.module.write_csv_reports(
+                {"local-host": audit}, output_dir, include_flatpaks=False
+            )
+            self.assertFalse((output_dir / "flatpaks.csv").exists())
+            self.assertEqual(
+                (output_dir / "homebrew.csv").read_text(encoding="utf-8"),
+                "Type,Package,local-host\n",
+            )
+
+    def test_csv_directory_rejects_stale_flatpak_report(self) -> None:
+        audit = self.module.ComputerAudit(set(), set(), set(), None)
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            output_dir = Path(temporary_directory)
+            old_flatpaks = output_dir / "flatpaks.csv"
+            old_flatpaks.write_text("old report\n", encoding="utf-8")
+
+            with self.assertRaisesRegex(RuntimeError, "stale report"):
+                self.module.write_csv_reports(
+                    {"local-host": audit}, output_dir, include_flatpaks=False
+                )
+
+            self.assertEqual(
+                old_flatpaks.read_text(encoding="utf-8"), "old report\n"
+            )
+            self.assertFalse((output_dir / "homebrew.csv").exists())
+
+    def test_main_writes_csv_directory(self) -> None:
+        audit = self.module.ComputerAudit(
+            {("brew", "jq")}, set(), set(), None
+        )
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            output_dir = Path(temporary_directory) / "reports"
+            with (
+                patch.object(self.module, "load_remotes", return_value={}),
+                patch.object(self.module, "read_managed_homebrew", return_value=set()),
+                patch.object(self.module, "read_managed_flatpaks", return_value=set()),
+                patch.object(self.module, "audit_computer", return_value=audit),
+                patch.object(self.module, "LOCAL_PC_NAME", "local-host"),
+                redirect_stdout(io.StringIO()),
+            ):
+                result = self.module.main(["--csv-dir", str(output_dir)])
+
+            self.assertEqual(result, 0)
+            self.assertEqual(
+                (output_dir / "homebrew.csv").read_text(encoding="utf-8"),
+                "Type,Package,local-host\nFormula,jq,installed\n",
+            )
+            self.assertFalse((output_dir / "package-audit.md").exists())
+
+    def test_csv_directory_is_exclusive_with_markdown_output(self) -> None:
+        for arguments in (
+            ["--csv-dir", "reports", "--save"],
+            ["--csv-dir", "reports", "--save", "--output", "report.md"],
+        ):
+            with self.subTest(arguments=arguments):
+                with self.assertRaises(SystemExit), redirect_stderr(io.StringIO()):
+                    self.module.parse_arguments(arguments)
+
     def test_help_documents_config_and_package_sources(self) -> None:
         stdout = io.StringIO()
 
@@ -378,6 +507,7 @@ class PackageAuditTests(unittest.TestCase):
         self.assertIn("Layered RPMs", help_text)
         self.assertIn("GNOME Shell extensions", help_text)
         self.assertIn("--output", help_text)
+        self.assertIn("--csv-dir", help_text)
 
     def test_ujust_recipe_forwards_help(self) -> None:
         justfile = (
@@ -403,6 +533,38 @@ class PackageAuditTests(unittest.TestCase):
 
         self.assertIn("[remotes]", result.stdout)
         self.assertIn("--user and --system Flatpaks", result.stdout)
+
+    def test_ujust_recipe_forwards_csv_directory(self) -> None:
+        justfile = (
+            REPOSITORY_ROOT
+            / "files/shared/usr/share/ublue-os/just/60-custom.just"
+        )
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            stub = Path(temporary_directory) / "audit-stub"
+            stub.write_text(
+                '#!/bin/sh\nprintf "%s\\n" "$@"\n', encoding="utf-8"
+            )
+            stub.chmod(0o755)
+            environment = os.environ.copy()
+            environment["PTINOPEDILA_PACKAGE_AUDITOR"] = str(stub)
+            result = subprocess.run(
+                [
+                    "just",
+                    "--justfile",
+                    str(justfile),
+                    "package-audit",
+                    "--csv-dir",
+                    str(Path(temporary_directory) / "reports"),
+                ],
+                check=True,
+                capture_output=True,
+                text=True,
+                env=environment,
+            )
+            self.assertEqual(
+                result.stdout.splitlines(),
+                ["--csv-dir", str(Path(temporary_directory) / "reports")],
+            )
 
 
 if __name__ == "__main__":

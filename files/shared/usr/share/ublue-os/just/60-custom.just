@@ -33,12 +33,13 @@ install-ptinopedila-brew:
 
 # Report unmanaged packages and installed GNOME Shell extensions.
 [arg('config', long='config')]
+[arg('csv_dir', long='csv-dir')]
 [arg('help', long='help', short='h', value='true')]
 [arg('output', long='output')]
 [arg('save', long='save', value='true')]
 [group('System')]
 [positional-arguments]
-package-audit save="false" output="" config="" help="false":
+package-audit save="false" output="" config="" help="false" csv_dir="":
     #!/usr/bin/env bash
     set -euo pipefail
 
@@ -56,6 +57,9 @@ package-audit save="false" output="" config="" help="false":
     fi
     if [[ $4 == "true" ]]; then
         ARGS+=(--help)
+    fi
+    if [[ -n $5 ]]; then
+        ARGS+=(--csv-dir "$5")
     fi
 
     exec "$AUDITOR" "${ARGS[@]}"
