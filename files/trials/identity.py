@@ -6,6 +6,7 @@ import json
 import os
 import shlex
 import sys
+import tomllib
 from pathlib import Path
 
 variant: str = sys.argv[1]
@@ -94,3 +95,33 @@ for filename, (label, url) in launchers.items():
 update_launcher: Path = applications / "system-update.desktop"
 if update_launcher.exists():
     update_launcher.write_text(update_launcher.read_text().replace("Bluefin", "ptinopedila"))
+
+# Home's terminal greeting links to our source, our issues, and upstream docs.
+# Classic renders a Markdown template; Utah reads a system TOML configuration.
+if variant == "classic":
+    welcome = Path("/usr/share/ublue-os/motd/template.md")
+    substitutions = {
+        "[Issues](https://issues.projectbluefin.io)": f"[Issues]({project}/issues)",
+        "[Ask Bluefin](https://ask.projectbluefin.io)": f"[Source]({project})",
+        "[Documentation](https://docs.projectbluefin.io)":
+            "[Bluefin upstream docs](https://docs.projectbluefin.io)",
+    }
+    template = welcome.read_text()
+    for old, new in substitutions.items():
+        if old not in template and new not in template:
+            raise ValueError(f"Missing welcome link in {welcome}: {old}")
+        template = template.replace(old, new)
+    welcome.write_text(template)
+else:
+    welcome = Path("/etc/uwelcome/config.toml")
+    template = welcome.read_text().replace(
+        '"https://issues.projectbluefin.io/"', f'"{project}/issues"'
+    )
+    links = {link["name"]: link["url"] for link in tomllib.loads(template)["links"]}
+    if links.get("issues") != f"{project}/issues":
+        raise ValueError(f"Missing downstream issue link in {welcome}")
+    if "source" not in links:
+        template += f'\n[[links]]\nname = "source"\nurl = "{project}"\n'
+    elif links["source"] != project:
+        raise ValueError(f"Unexpected source link in {welcome}: {links['source']}")
+    welcome.write_text(template)

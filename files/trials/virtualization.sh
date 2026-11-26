@@ -1,10 +1,5 @@
 #!/usr/bin/env bash
 set -euo pipefail
-# The manager connects to the libvirt user session supplied by its QEMU extension.
-install -Dm0644 /ctx/files/trials/ptinopedila-virtualization.preinstall \
-    /usr/share/flatpak/preinstall.d/ptinopedila-virtualization.preinstall
-python3 /ctx/files/scripts/build-managed-flatpak-list.py
-
 # Check the modules for each packaged kernel, independent of RPM packaging.
 for directory in /usr/lib/modules/*; do
     [[ -d $directory ]] || exit 1

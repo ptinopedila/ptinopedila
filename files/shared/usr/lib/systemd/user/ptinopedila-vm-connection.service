@@ -1,0 +1,8 @@
+[Unit]
+Description=Set the initial Virtual Machine Manager connection
+PartOf=graphical-session.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/libexec/ptinopedila/configure-vm-connection
+RemainAfterExit=yes

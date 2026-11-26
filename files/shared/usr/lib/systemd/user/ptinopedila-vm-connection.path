@@ -1,0 +1,10 @@
+[Unit]
+Description=Watch for Virtual Machine Manager in this desktop session
+ConditionUser=!@system
+PartOf=graphical-session.target
+
+[Path]
+PathExists=/var/lib/flatpak/app/org.virt_manager.virt-manager/current/active/metadata
+
+[Install]
+WantedBy=graphical-session.target

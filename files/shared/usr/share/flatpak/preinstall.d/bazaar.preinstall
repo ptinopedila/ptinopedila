@@ -1,0 +1,4 @@
+# Keep the system app store provided by the Home base.
+[Flatpak Preinstall io.github.kolunmi.Bazaar]
+Branch=stable
+IsRuntime=false

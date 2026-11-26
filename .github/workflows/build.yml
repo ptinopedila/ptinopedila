@@ -38,11 +38,14 @@ jobs:
 
       - name: Check shell syntax
         run: |
-          bash -n files/scripts/*.sh files/scripts/secureblue/*.sh tests/*.sh
-          find files/shared/usr/libexec/ptinopedila \
-            -maxdepth 1 -type f ! -name package-audit \
-            ! -name word-lookup ! -name install-word-lookup ! -name configure-word-lookup-raffi \
-            -exec bash -n {} +
+          for script in files/scripts/*.sh files/scripts/secureblue/*.sh tests/*.sh; do
+            bash -n "$script"
+          done
+          for helper in files/shared/usr/libexec/ptinopedila/*; do
+            if head -n 1 "$helper" | grep -Eq '^#!.*[/ ]bash([[:space:]]|$)'; then
+              bash -n "$helper"
+            fi
+          done
 
       - name: Check just formatting
         run: |
@@ -56,6 +59,7 @@ jobs:
         run: |
           tests/install-dotfiles.sh
           tests/install-conda.sh
+          tests/manage-vm-flatpaks.sh
           tests/check-optim-upstream.sh
           tests/install-dynare.sh
           python3 tests/install-deepseek-codex.py

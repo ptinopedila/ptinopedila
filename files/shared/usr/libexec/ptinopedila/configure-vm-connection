@@ -1,0 +1,27 @@
+#!/usr/bin/env bash
+# Use the settings backend of the installed Flatpak as the desktop user.
+set -euo pipefail
+# The archived setup-vms recipe also selected the user session for libvirt
+# clients. Respect an explicit URI, including a remote user's connection.
+config_dir=${XDG_CONFIG_HOME:-$HOME/.config}/libvirt
+mkdir -p -- "$config_dir"
+(
+    flock --exclusive 9
+    if ! grep -Eq '^[[:space:]]*uri_default[[:space:]]*=' "$config_dir/libvirt.conf"; then
+        printf '\nuri_default = "qemu:///session"\n' >&9
+    fi
+) 9>> "$config_dir/libvirt.conf"
+
+exec flatpak run --system --command=python3 org.virt_manager.virt-manager - <<'PYTHON'
+from gi.repository import Gio
+
+settings = Gio.Settings.new("org.virt-manager.virt-manager.connections")
+keys = ("uris", "autoconnect")
+if all(settings.get_user_value(key) is None for key in keys):
+    settings.delay()
+    for key in keys:
+        if not settings.set_strv(key, ["qemu:///session"]):
+            raise SystemExit(f"Could not save Virtual Machine Manager setting: {key}")
+    settings.apply()
+    Gio.Settings.sync()
+PYTHON

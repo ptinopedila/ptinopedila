@@ -1,0 +1,37 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+case ${1:-} in setup|toggle) ;; *) echo "Usage: $0 setup|toggle" >&2; exit 2 ;; esac
+
+arch=$(flatpak --default-arch)
+manager="app/org.virt_manager.virt-manager/$arch/stable"
+qemu="runtime/org.virt_manager.virt_manager.Extension.Qemu/$arch/stable"
+installed=()
+missing=()
+for ref in "$manager" "$qemu"; do
+    # The list's ref column omits the kind. Select the matching kind first.
+    list=$(flatpak list --system --all "--${ref%%/*}" --columns=ref,origin)
+    origin=$(awk -F '\t' -v ref="${ref#*/}" '$1 == ref {print $2}' <<< "$list")
+    if [[ -z $origin ]]; then
+        missing+=("$ref")
+    elif [[ $origin == flathub ]]; then
+        installed+=("$ref")
+    else
+        echo "$ref is installed from $origin. Leaving it in place." >&2
+        exit 1
+    fi
+done
+
+if [[ $1 == toggle ]]; then
+    if [[ ${installed[0]:-} == "$manager" ]]; then
+        gum confirm "Remove the VM stack (virt-manager + QEMU)?" || exit 0
+        flatpak uninstall --system --noninteractive --no-related "${installed[@]}"
+        exit 0
+    fi
+    gum confirm "Install the VM stack (virt-manager + QEMU)?" || exit 0
+fi
+
+if (( ${#missing[@]} )); then
+    flatpak install --system --noninteractive flathub "${missing[@]}"
+fi
+"$(dirname -- "$0")/configure-vm-connection"
