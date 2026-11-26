@@ -22,6 +22,10 @@ Branch=stable
 [Flatpak Preinstall org.gnome.Firmware]
 Branch=stable
 
+# Office documents and the office-to-pdf converter
+[Flatpak Preinstall org.libreoffice.LibreOffice]
+Branch=stable
+
 # Web, communication, media, and graphics
 [Flatpak Preinstall be.alexandervanhee.gradia]
 Branch=stable

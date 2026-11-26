@@ -1,0 +1,10 @@
+{
+  "bonedigger-report.upstream": {
+    "url": "https://github.com/projectbluefin/common/blob/cbd595a5a603d5890216e92e78f94660ff77c720/system_files/bluefin/usr/libexec/bonedigger-report",
+    "sha256": "3b25ca40f0028f4aa694e0bdc778c6125fb1b2a8a9b6739bea92f2a899beb02f"
+  },
+  "ublue-image-repo.upstream": {
+    "url": "https://github.com/projectbluefin/common/blob/cbd595a5a603d5890216e92e78f94660ff77c720/system_files/shared/usr/libexec/ublue-image-repo",
+    "sha256": "3a93b1962599da0afe69d7aeb47d1eb637b3f88b205997f0944bebda5cb6523e"
+  }
+}

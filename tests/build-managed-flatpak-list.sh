@@ -32,10 +32,13 @@ PTINOPEDILA_FLATPAK_PREINSTALL_DIR="$production_directory" \
 PTINOPEDILA_FLATPAK_MANIFEST="$manifest_file" \
   "$builder"
 
-if [[ $(wc -l < "$manifest_file") -ne 37 ]] || grep -q 'org.gnome.gThumb' "$manifest_file"; then
+if [[ $(wc -l < "$manifest_file") -ne 38 ]] || grep -q 'org.gnome.gThumb' "$manifest_file"; then
   echo "Unexpected Ptinopedila Flatpak defaults after the split." >&2
   exit 1
 fi
+
+# office-to-pdf launches this exact Flatpak on every production variant.
+grep -Fxq $'system\torg.libreoffice.LibreOffice' "$manifest_file"
 
 expected_home=$'ca.desrt.dconf-editor\nio.github.getnf.embellish\nio.github.pwr_solaar.solaar\nio.podman_desktop.PodmanDesktop\norg.gnome.SoundRecorder\norg.gustavoperedo.FontDownloader'
 actual_home=$(sed -n 's/^\[Flatpak Preinstall \(.*\)\]$/\1/p' \

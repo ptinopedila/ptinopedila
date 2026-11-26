@@ -193,6 +193,31 @@ class PackageAuditTests(unittest.TestCase):
             audit.gnome_extensions, {"example@example.com": True}
         )
 
+    def test_bootc_only_host_keeps_other_audits_available(self) -> None:
+        with (
+            patch.object(self.module, "command_exists", return_value=False),
+            patch.object(self.module, "run_text") as run_text,
+        ):
+            self.assertIsNone(self.module.get_layered_rpms("utah"))
+        run_text.assert_not_called()
+        audits = {
+            "Utah": self.module.ComputerAudit({("brew", "example")}, set(), None, None),
+            "Classic": self.module.ComputerAudit(set(), set(), {"example-rpm"}, None),
+        }
+        self.assertEqual(
+            self.module.layered_rpm_rows(audits)[1],
+            [["example-rpm", "n/a", "✓"]],
+        )
+        for render in (self.module.render_terminal, self.module.render_markdown):
+            result = render(audits)
+            self.assertIn("example", result)
+            self.assertIn("inspection unavailable (rpm-ostree absent): Utah", result)
+        with tempfile.TemporaryDirectory() as directory:
+            self.module.write_csv_reports(audits, Path(directory))
+            self.assertIn("unavailable", (Path(directory) / "layered-rpms.csv").read_text())
+            self.assertIn("Utah,unavailable (rpm-ostree absent)",
+                          (Path(directory) / "layered-rpms-status.csv").read_text())
+
     def test_parse_layered_rpms_uses_booted_deployment_requests(self) -> None:
         status = json.dumps(
             {
@@ -392,6 +417,7 @@ class PackageAuditTests(unittest.TestCase):
                     "flatpaks.csv",
                     "gnome-extensions.csv",
                     "layered-rpms.csv",
+                    "layered-rpms-status.csv",
                 },
             )
 

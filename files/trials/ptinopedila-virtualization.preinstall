@@ -1,0 +1,10 @@
+# Desktop applications and the QEMU user-session extension for both trial bases.
+[Flatpak Preinstall org.virt_manager.virt-manager]
+Branch=stable
+
+[Flatpak Preinstall org.virt_manager.virt_manager.Extension.Qemu]
+Branch=stable
+IsRuntime=true
+
+[Flatpak Preinstall com.obsproject.Studio]
+Branch=stable

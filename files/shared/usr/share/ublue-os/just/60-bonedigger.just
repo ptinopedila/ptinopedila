@@ -9,9 +9,9 @@ export BONEDIGGER_FEATURE_URL := "https://github.com/ptinopedila/ptinopedila/iss
 
 # Collect a previewed, privacy-respecting report and create an issue directly with gh.
 [group('System')]
+[positional-arguments]
 report *args:
-    BONEDIGGER_VERSION="{{ BONEDIGGER_VERSION }}" \
-    BONEDIGGER_BRAND="${BONEDIGGER_BRAND}" \
-    BONEDIGGER_ISSUE_URL="${BONEDIGGER_ISSUE_URL}" \
-    BONEDIGGER_FEATURE_URL="${BONEDIGGER_FEATURE_URL}" \
-    /usr/libexec/bonedigger-report {{ args }}
+    #!/usr/bin/env bash
+    set -euo pipefail
+    export BONEDIGGER_VERSION="{{ BONEDIGGER_VERSION }}"
+    exec "${PTINOPEDILA_BONEDIGGER_REPORT:-/usr/libexec/bonedigger-report}" "$@"

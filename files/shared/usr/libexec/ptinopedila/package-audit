@@ -44,7 +44,7 @@ GnomeExtensionStates = dict[str, bool]
 class ComputerAudit(NamedTuple):
     homebrew: set[HomebrewPackage]
     flatpaks: set[FlatpakApplication]
-    layered_rpms: set[str]
+    layered_rpms: set[str] | None
     gnome_extensions: GnomeExtensionStates | None
 
 
@@ -275,7 +275,9 @@ def parse_layered_rpms(status_text: str) -> set[str]:
     return layered
 
 
-def get_layered_rpms(ssh_target: str | None = None) -> set[str]:
+def get_layered_rpms(ssh_target: str | None = None) -> set[str] | None:
+    if not command_exists(RPM_OSTREE_COMMAND, ssh_target):
+        return None
     status_text: str = run_text(
         [RPM_OSTREE_COMMAND, "status", "--json"], ssh_target
     )
@@ -365,12 +367,14 @@ def layered_rpm_rows(
 ) -> tuple[list[str], list[list[str]]]:
     computer_names: list[str] = list(audits)
     packages: list[str] = sorted(
-        set().union(*(audit.layered_rpms for audit in audits.values()))
+        set().union(*(audit.layered_rpms for audit in audits.values()
+                      if audit.layered_rpms is not None))
     )
     rows: list[list[str]] = [
         [
             package,
             *[
+                "n/a" if audits[name].layered_rpms is None else
                 "✓" if package in audits[name].layered_rpms else ""
                 for name in computer_names
             ],
@@ -484,6 +488,15 @@ def render_terminal(
             ]
         )
 
+    unavailable_rpm_hosts: list[str] = [
+        name for name, audit in audits.items() if audit.layered_rpms is None
+    ]
+    if unavailable_rpm_hosts:
+        lines.extend([
+            "",
+            "Layered RPM inspection unavailable (rpm-ostree absent): "
+            + ", ".join(unavailable_rpm_hosts),
+        ])
     if rpm_data:
         lines.extend(
             [
@@ -560,6 +573,15 @@ def render_markdown(
             ]
         )
 
+    unavailable_rpm_hosts: list[str] = [
+        name for name, audit in audits.items() if audit.layered_rpms is None
+    ]
+    if unavailable_rpm_hosts:
+        lines.extend([
+            "",
+            "Layered RPM inspection unavailable (rpm-ostree absent): "
+            + ", ".join(unavailable_rpm_hosts),
+        ])
     if rpm_data:
         lines.extend(
             [
@@ -588,6 +610,7 @@ def write_csv_reports(
     package_states: dict[str, str] = {
         "✓": "installed",
         "": "not installed",
+        "n/a": "unavailable",
     }
     reports: list[
         tuple[str, tuple[list[str], list[list[str]]], int, dict[str, str]]
@@ -610,6 +633,18 @@ def write_csv_reports(
         reports.insert(
             1,
             ("flatpaks.csv", flatpak_rows(audits), 2, package_states),
+        )
+
+    # A header-only package table must not imply a successful RPM inspection.
+    with (output_dir / "layered-rpms-status.csv").open(
+        "w", encoding="utf-8", newline=""
+    ) as output:
+        writer = csv.writer(output, lineterminator="\n")
+        writer.writerow(["Computer", "Inspection"])
+        writer.writerows(
+            (name, "unavailable (rpm-ostree absent)" if audit.layered_rpms is None
+             else "available")
+            for name, audit in audits.items()
         )
 
     for filename, (headers, rows), computer_column_start, states in reports:
@@ -643,6 +678,7 @@ Report contents:
                section appears when gnome-extensions reports at least one
                installed extension on an audited computer.
   Layered RPMs Packages requested on the booted rpm-ostree deployment.
+               Inspection is unavailable when rpm-ostree is absent.
                Ptinopedila does not support package layering.
 
 Remote computers:
@@ -660,7 +696,7 @@ Output:
   The default output is a formatted terminal report. --save writes Markdown
   to ./package-audit.md. Use --output with --save to select another path.
   --csv-dir DIR writes homebrew.csv, flatpaks.csv, gnome-extensions.csv,
-  and layered-rpms.csv there. Flatpaks are omitted if their managed manifest
+  layered-rpms.csv, and layered-rpms-status.csv there. Flatpaks are omitted if their managed manifest
   is unavailable. Empty tables contain a header row.
 """,
     )
