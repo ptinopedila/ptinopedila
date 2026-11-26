@@ -2,6 +2,7 @@
 _default:
     @ujust --list
 
+import "/usr/share/ptinopedila/vms.just"
 import "/usr/share/ublue-os/just/00-ptinopedila-upstream.just"
 import "/usr/share/ublue-os/just/90-ptinopedila.just"
 import "/usr/share/ublue-os/just/91-ptinopedila-report.just"

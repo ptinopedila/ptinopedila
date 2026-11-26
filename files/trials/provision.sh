@@ -46,6 +46,9 @@ install -d -m 0755 "${brew_directory}" "${flatpak_directory}"
 install -m 0644 \
     "${source_root}/files/shared${brew_directory}/"*.Brewfile \
     "${brew_directory}/"
+# Replace the base's vendor declarations during the image build. Home and
+# Home NVIDIA use these same shared and home manifests, including Bazaar.
+rm -f -- "${flatpak_directory}/"*.preinstall
 for profile in shared home; do
     install -m 0644 \
         "${source_root}/files/${profile}${flatpak_directory}/"*.preinstall \
@@ -62,7 +65,9 @@ install -D -m 0644 \
 
 python3 "${source_root}/files/scripts/build-managed-flatpak-list.py"
 systemctl --global enable brew-preinstall.service
-systemctl enable flatpak-preinstall.service
+install -m 0644 "${source_root}/files/shared/usr/lib/systemd/user/"ptinopedila-vm-connection.{path,service} \
+    /usr/lib/systemd/user/
+bash "${source_root}/files/scripts/enable-flatpak-preinstall.sh"
 
 printf 'Trial app declarations installed: %s Brewfiles, %s managed Flatpak apps\n' \
     "$(find "${brew_directory}" -maxdepth 1 -name '*.Brewfile' -type f | wc -l)" \

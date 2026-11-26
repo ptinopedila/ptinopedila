@@ -56,6 +56,7 @@ jobs:
         run: |
           tests/install-dotfiles.sh
           tests/install-conda.sh
+          tests/manage-vm-flatpaks.sh
           tests/check-optim-upstream.sh
           tests/install-dynare.sh
           python3 tests/install-deepseek-codex.py

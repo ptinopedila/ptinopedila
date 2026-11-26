@@ -52,6 +52,7 @@ For upstream concepts and administration, see the
 Ptinopedila-specific guides:
 
 - [Install and manage applications](docs/install-applications.md)
+- [Set up and remove Virtual Machine Manager](docs/virtualization.md)
 - [Run CUDA containers on Ptinopedila NVIDIA](docs/cuda-containers.md)
 - [Choose a tmux session when connecting over SSH](docs/ssh-tmux-sessions.md)
 - [Install dotfiles](docs/install-dotfiles.md)

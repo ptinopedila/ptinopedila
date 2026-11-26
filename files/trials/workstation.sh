@@ -74,5 +74,5 @@ zsh -n /etc/zshenv /etc/zprofile /etc/zshrc
 dconf update
 just --justfile "$just_directory/00-entry.just" --summary >/dev/null
 /usr/libexec/ptinopedila/set-faillock status
-systemctl is-enabled uupd.timer
+bash "$source_root/trials/update-defaults.sh"
 printf "Production workstation integration complete for %s\n" "$variant"

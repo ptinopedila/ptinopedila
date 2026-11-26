@@ -1,5 +1,5 @@
 > **Created:** `2026-08-26T05:43+03:00` · **Last updated:**
-> `2026-10-30T04:37+02:00`
+> `2026-11-26T03:38+02:00`
 
 # Install and manage applications
 
@@ -49,6 +49,9 @@ more convenient when the application ID is not already known.
 When switching from Fedora or another image, first read the
 [Flatpak migration warning](../README.md#installation). Bluefin configures
 Flathub and removes the Fedora Flatpak remote by default.
+
+To install Virtual Machine Manager or change its local connection,
+see [Virtualization](virtualization.md).
 
 ### Customize preinstalled Flatpaks
 

@@ -11,6 +11,16 @@ import sys
 
 if len(sys.argv) > 1:
     source = Path(sys.argv[1])
+    # Compare the files Flatpak and Homebrew read, including inherited defaults
+    # that would be invisible to the downstream package-audit manifest.
+    for directory, pattern, profiles in [
+        ('usr/share/flatpak/preinstall.d', '*.preinstall', ('shared', 'home')),
+        ('usr/share/ublue-os/homebrew/preinstall.d', '*.Brewfile', ('shared',)),
+    ]:
+        expected = {p.name: p.read_bytes() for profile in profiles
+                    for p in (source / 'files' / profile / directory).glob(pattern)}
+        actual = {p.name: p.read_bytes() for p in (Path('/') / directory).glob(pattern)}
+        assert actual == expected, f'Application defaults differ from Home: {directory}'
     for path in (source / 'files/shared/usr/libexec/ptinopedila').iterdir():
         if path.is_file():
             installed = Path('/usr/libexec/ptinopedila') / path.name
@@ -20,6 +30,10 @@ if len(sys.argv) > 1:
     sysctl_source = source / 'files/secureblue/usr/etc/sysctl.d/hardening.conf'
     assert Path('/etc/sysctl.d/hardening.conf').read_bytes() == sysctl_source.read_bytes(), 'Stale sysctl configuration in baked image'
     print('PASS baked production helper and recipe byte comparison')
+
+for recipe, action in [('setup-vms', 'setup'), ('toggle-vms', 'toggle')]:
+    definition = subprocess.check_output(['ujust', '--show', recipe], text=True)
+    assert f'/usr/libexec/ptinopedila/manage-vm-flatpaks {action}' in definition, definition
 
 def run_checked(*arguments, **keywords):
     try:
