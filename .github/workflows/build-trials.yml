@@ -1,0 +1,50 @@
+name: Check workstation trial images
+
+on:
+  pull_request:
+    paths:
+      - 'trials/**'
+      - 'files/**'
+      - 'tests/**'
+      - 'cosign.pub'
+      - '.github/workflows/build-trials.yml'
+  workflow_dispatch:
+    inputs:
+      verify_published:
+        description: Also pull the existing public testing tag using the image's signing policy
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    name: Check ${{ matrix.base }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 180
+    strategy:
+      fail-fast: false
+      matrix:
+        base: [classic, utah]
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: hastd/free-disk-space@68572aeaadb7f76bd408246328e95926323402b5 # v0.1.2
+        with:
+          skip-if-available: '80G'
+      - name: Build and check the trial
+        env:
+          BASE: ${{ matrix.base }}
+        run: |
+          sudo bash trials/build.sh "$BASE"
+          sudo bash trials/check.sh "$BASE"
+      - name: Verify one signed pull of the published testing image
+        if: github.event_name == 'workflow_dispatch' && inputs.verify_published
+        env:
+          BASE: ${{ matrix.base }}
+        run: |
+          sudo podman run --rm --pull=never --entrypoint skopeo \
+            "localhost/ptinopedila-testing-$BASE:latest" copy \
+            "docker://ghcr.io/ptinopedila/ptinopedila-testing-$BASE:latest" dir:/tmp/pulled-image

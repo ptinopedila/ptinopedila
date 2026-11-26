@@ -1,0 +1,45 @@
+name: Release workstation testing images
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  release:
+    if: github.repository == 'ptinopedila/ptinopedila' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 180
+    name: Release ${{ matrix.base }}
+    strategy:
+      fail-fast: false
+      matrix:
+        base: [classic, utah]
+    concurrency:
+      group: release-ptinopedila-testing-${{ matrix.base }}
+      cancel-in-progress: false
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: hastd/free-disk-space@68572aeaadb7f76bd408246328e95926323402b5 # v0.1.2
+        with:
+          skip-if-available: '80G'
+      - name: Build and check the release candidate
+        env:
+          BASE: ${{ matrix.base }}
+        run: |
+          sudo bash trials/build.sh "$BASE"
+          sudo bash trials/check.sh "$BASE"
+      - name: Sign and verify before promoting to latest
+        env:
+          BASE: ${{ matrix.base }}
+          GHCR_TOKEN: ${{ github.token }}
+          SIGNING_SECRET: ${{ secrets.SIGNING_SECRET }}
+        run: |
+          sudo --preserve-env=GITHUB_RUN_ID,GITHUB_RUN_ATTEMPT,GITHUB_ACTOR,GHCR_TOKEN,SIGNING_SECRET \
+            bash trials/publish.sh "$BASE"

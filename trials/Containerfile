@@ -1,0 +1,21 @@
+ARG BASE_IMAGE
+FROM scratch AS trial-inputs
+COPY . /files/
+
+FROM ${BASE_IMAGE}
+ARG TRIAL_NAME
+ARG TRIAL_VARIANT
+LABEL org.opencontainers.image.title=${TRIAL_NAME} \
+      org.opencontainers.image.source="https://github.com/ptinopedila/ptinopedila" \
+      org.opencontainers.image.description="Ptinopedila workstation trial"
+
+RUN --mount=type=bind,from=trial-inputs,target=/ctx \
+    bash /ctx/files/trials/host-packages.sh && bash /ctx/files/trials/assert-host-capabilities.sh
+RUN --mount=type=bind,from=trial-inputs,target=/ctx \
+    bash /ctx/files/trials/provision.sh && \
+    bash /ctx/files/trials/workstation.sh "$TRIAL_VARIANT" && \
+    bash /ctx/files/trials/virtualization.sh
+
+RUN --mount=type=bind,from=trial-inputs,target=/ctx \
+    --mount=type=secret,id=trial-public-key,required=true \
+    bash /ctx/files/trials/signing.sh

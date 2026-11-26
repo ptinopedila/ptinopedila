@@ -1,0 +1,5 @@
+docker:
+  ghcr.io/ptinopedila/ptinopedila-testing-classic:
+    use-sigstore-attachments: true
+  ghcr.io/ptinopedila/ptinopedila-testing-utah:
+    use-sigstore-attachments: true

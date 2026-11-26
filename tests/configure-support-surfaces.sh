@@ -115,11 +115,8 @@ grep -Fq 'export BONEDIGGER_FEATURE_URL := "https://github.com/ptinopedila/ptino
 [[ "$(just --summary --unstable --justfile "${downstream_bonedigger}")" == "report" ]]
 grep -Fq 'BONEDIGGER_VERSION := "v0.2.0"' "${downstream_bonedigger}"
 grep -Fq 'report *args:' "${downstream_bonedigger}"
-grep -Fq '/usr/libexec/bonedigger-report {{ args }}' "${downstream_bonedigger}"
-bonedigger_dry_run="$(
-  just --dry-run --unstable --justfile "${downstream_bonedigger}" report --confirm 42 2>&1
-)"
-grep -Fq '/usr/libexec/bonedigger-report --confirm 42' <<< "${bonedigger_dry_run}"
+grep -Fq 'exec "${PTINOPEDILA_BONEDIGGER_REPORT:-/usr/libexec/bonedigger-report}" "$@"' "${downstream_bonedigger}"
+bash "${repository_root}/tests/bonedigger-arguments.sh"
 
 BONEDIGGER_REPORT_FILE="${current_report_file}" \
 BONEDIGGER_JUST_FILE="${downstream_bonedigger}" \

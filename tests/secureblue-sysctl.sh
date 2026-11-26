@@ -11,4 +11,10 @@ if grep -Eq '^[[:space:]]*net\.ipv4\.tcp_(d?sack)[[:space:]]*=[[:space:]]*0([[:s
     exit 1
 fi
 
+# systemd-sysctl treats a semicolon as part of the key on our target images.
+if grep -nE '^[[:space:]]*;' "$sysctl_config"; then
+    echo "Use # for disabled sysctl settings and comments." >&2
+    exit 1
+fi
+
 echo "Secureblue-derived sysctl tests passed."
