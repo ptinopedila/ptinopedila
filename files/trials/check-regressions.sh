@@ -20,7 +20,7 @@ for test in \
     configure-latex configure-vscode-latex configure-image-info \
     configure-support-surfaces toggle-bluetooth-on-boot toggle-mac-randomization \
     cups-recipes secureblue-sysctl set-faillock ujust-zsh-completion \
-    remove-inherited-ujust-recipes build-managed-flatpak-list manage-vm-flatpaks; do
+    remove-inherited-ujust-recipes build-managed-flatpak-list manage-vm-flatpaks developer-tools; do
     bash "tests/$test.sh"
 done
 python3 tests/install-deepseek-codex.py

@@ -21,7 +21,7 @@ modules:
         destination: /
 
   # At equal import depth, Just selects the first matching recipe. Give the
-  # shared VM recipes precedence over the archived base's system.just.
+  # shared VM and developer recipes precedence over the archived base's system.just.
   - type: script
     snippets:
       - |
@@ -29,6 +29,10 @@ modules:
         entry=/usr/share/ublue-os/just/00-entry.just
         line='import "/usr/share/ptinopedila/vms.just"'
         grep -Fxq "$line" "$entry" || sed -i "1i $line" "$entry"
+        line='import "/usr/share/ptinopedila/developer.just"'
+        grep -Fxq "$line" "$entry" || sed -i "1i $line" "$entry"
+        just --justfile "$entry" --show devmode | grep -Fxq '    @/usr/libexec/ptinopedila/developer-tools'
+        just --justfile "$entry" --show toggle-devmode | grep -Fxq 'toggle-devmode: devmode'
         for recipe in setup-vms toggle-vms; do
           just --justfile "$entry" --show "$recipe" | grep -F '/usr/libexec/ptinopedila/manage-vm-flatpaks'
         done
