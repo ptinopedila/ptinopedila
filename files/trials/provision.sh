@@ -60,11 +60,17 @@ install -D -m 0644 \
     "${source_root}/files/shared/usr/lib/systemd/user/brew-preinstall.service.d/10-ptinopedila-taps.conf" \
     /usr/lib/systemd/user/brew-preinstall.service.d/10-ptinopedila-taps.conf
 install -D -m 0644 \
+    "${source_root}/files/shared/usr/lib/systemd/user/brew-preinstall.service.d/20-ptinopedila-fonts.conf" \
+    /usr/lib/systemd/user/brew-preinstall.service.d/20-ptinopedila-fonts.conf
+install -D -m 0644 \
     "${source_root}/files/shared/usr/lib/environment.d/20-ptinopedila-homebrew.conf" \
     /usr/lib/environment.d/20-ptinopedila-homebrew.conf
 
 python3 "${source_root}/files/scripts/build-managed-flatpak-list.py"
 systemctl --global enable brew-preinstall.service
+install -D -m 0644 \
+    "${source_root}/files/shared/usr/lib/tmpfiles.d/ptinopedila-brew-fonts.conf" \
+    /usr/lib/tmpfiles.d/ptinopedila-brew-fonts.conf
 install -m 0644 "${source_root}/files/shared/usr/lib/systemd/user/"ptinopedila-vm-connection.{path,service} \
     /usr/lib/systemd/user/
 bash "${source_root}/files/scripts/enable-flatpak-preinstall.sh"

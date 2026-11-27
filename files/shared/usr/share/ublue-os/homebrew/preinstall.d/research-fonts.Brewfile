@@ -3,6 +3,7 @@
 # Category: Research
 # Install policy: automatic
 
+cask "font-carlito"
 cask "font-inter"
 cask "font-ubuntu"
 cask "font-ubuntu-mono"

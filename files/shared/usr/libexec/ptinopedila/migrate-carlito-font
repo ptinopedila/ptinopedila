@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+# Brew Bundle skips an installed cask even when its font directory has changed.
+set -euo pipefail
+
+prefix=/home/linuxbrew/.linuxbrew
+cask=$prefix/Caskroom/font-carlito
+private_font=${XDG_DATA_HOME:-$HOME/.local/share}/fonts/Carlito-Regular.ttf
+[[ -O $prefix && -d $cask && -f $private_font ]] || exit 0
+
+# A font cask leaves a link in its staging directory to the installed file.
+# Match that file by inode to avoid moving unrelated copies or custom installs.
+while IFS= read -r -d '' link; do
+    if [[ $link -ef $private_font ]]; then
+        exec "$prefix/bin/brew" upgrade --cask --greedy-latest font-carlito
+    fi
+done < <(find "$cask" -type l -name Carlito-Regular.ttf -print0)

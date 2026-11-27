@@ -22,8 +22,6 @@ for extension in "${extensions[@]}"; do
         exit 1
     fi
 done
-fc-cache -f
-fc-match Carlito --format '%{family}\n' | grep -Fx Carlito
 sensors --version
 smartctl --version
 printf 'Host capability checks passed; graphical launches and hardware access require a booted desktop.\n'

@@ -14,7 +14,7 @@ readonly source_root=/ctx/files/trials
 readonly report=/usr/share/ptinopedila/trial-host-packages.tsv
 readonly -a required=(
     lm_sensors smartmontools ddccontrol-gtk file-roller-nautilus
-    google-carlito-fonts zenity xdg-terminal-exec wl-clipboard
+    zenity xdg-terminal-exec wl-clipboard
 )
 baseline=$(mktemp)
 rpm -qa --queryformat '%{NEVRA}\n' | sort -u >"${baseline}"
