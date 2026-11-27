@@ -40,6 +40,9 @@ install -D -m 0644 "$source_root/shared/usr/share/zsh/site-functions/_ujust" \
 
 # Keep the actual inherited imports and Utah-specific compatible overrides.
 readonly just_directory=/usr/share/ublue-os/just
+if [[ $variant == classic ]]; then
+    python3 "$source_root/trials/remove-classic-dx-switch.py"
+fi
 if [[ ! -f $just_directory/00-ptinopedila-upstream.just ]]; then
     mv "$just_directory/00-entry.just" "$just_directory/00-ptinopedila-upstream.just"
 fi
@@ -49,6 +52,8 @@ install -m 0644 "$source_root/trials/workstation.just" \
     "$just_directory/00-entry.just"
 install -m 0644 "$source_root/shared/usr/share/ublue-os/just/60-bonedigger.just" \
     "$just_directory/91-ptinopedila-report.just"
+just --justfile "$just_directory/00-entry.just" --show devmode | grep -Fxq '    @/usr/libexec/ptinopedila/developer-tools'
+just --justfile "$just_directory/00-entry.just" --show toggle-devmode | grep -Fxq 'toggle-devmode: devmode'
 install -D -m 0644 "$source_root/trials/UPSTREAM-LICENSE" /usr/share/licenses/ptinopedila-trials/UPSTREAM-LICENSE
 install -D -m 0644 "$source_root/trials/upstream-sources.json" /usr/share/ptinopedila/trial-upstream-sources.json
 install -D -m 0755 "$source_root/trials/bonedigger-report.upstream" /usr/libexec/bonedigger-report

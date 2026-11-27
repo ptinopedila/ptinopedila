@@ -1,0 +1,35 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+options=('Dev Container CLI' 'Podman Desktop' 'Virtual Machine Manager + QEMU'
+         'Lima' 'Visual Studio Code' 'Neovim' 'Helix' 'Vim' 'Micro')
+
+# gum returns 1 or 130 when the user dismisses a prompt.
+cancel_or_fail() {
+    case "$1" in
+        1|130) exit 0 ;;
+        *) exit "$1" ;;
+    esac
+}
+
+choices=$(GUM_CHOOSE_SELECTED='' gum choose --no-limit \
+    --header='Choose developer tools to install' "${options[@]}") || cancel_or_fail "$?"
+[[ -n $choices ]] || exit 0
+mapfile -t selected <<< "$choices"
+printf 'Selected for installation:\n'
+printf '  %s\n' "${selected[@]}"
+gum confirm --default=false 'Install these tools?' || cancel_or_fail "$?"
+
+for tool in "${selected[@]}"; do
+    case "$tool" in
+        'Dev Container CLI') brew install devcontainer ;;
+        'Podman Desktop') flatpak install --system --noninteractive flathub io.podman_desktop.PodmanDesktop ;;
+        'Virtual Machine Manager + QEMU') "$(dirname -- "$0")/manage-vm-flatpaks" setup ;;
+        'Lima'|'Neovim'|'Helix'|'Vim'|'Micro') brew install "${tool,,}" ;;
+        'Visual Studio Code')
+            brew tap --trust ublue-os/tap
+            brew install --cask ublue-os/tap/visual-studio-code-linux
+            ;;
+        *) printf 'Unknown developer tool: %s\n' "$tool" >&2; exit 2 ;;
+    esac
+done
