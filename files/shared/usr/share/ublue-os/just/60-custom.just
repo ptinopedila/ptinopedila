@@ -21,6 +21,7 @@ install-ptinopedila-brew:
         exit 1
     fi
 
+    /usr/libexec/ptinopedila/migrate-carlito-font
     "${BREW}" trust --tap ublue-os/tap
     "${BREW}" trust --tap frostyard/tap
     for brewfile in "${BREWFILES[@]}"; do

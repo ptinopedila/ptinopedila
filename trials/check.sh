@@ -13,6 +13,11 @@ podman run "${options[@]}" --user 1000:1000 --tmpfs /tmp:rw,mode=1777 \
     "$image" /src/files/trials/check-regressions.sh /src
 podman run "${options[@]}" --security-opt label=disable --volume "$PWD:/src:ro" \
     --entrypoint bash "$image" -euc '
+    systemd-tmpfiles --create /usr/lib/tmpfiles.d/ptinopedila-brew-fonts.conf
+    test "$(stat -c "%a:%u" /usr/local/share/fonts/homebrew)" = 755:1000
+    grep -Fxq HOMEBREW_CASK_OPTS=--fontdir=/usr/local/share/fonts/homebrew /etc/homebrew/brew.env
+    # Carlito arrives at login. Fontconfig must already know the Calibri substitute.
+    fc-pattern --config --format="%{family}" Calibri | tr "," "\n" | grep -Fxq Carlito
     cmp /usr/lib/pki/containers/ptinopedila.pub /src/cosign.pub
     cmp /etc/containers/registries.d/ptinopedila-testing.yaml /src/files/trials/testing-registries.yaml
     for base in classic utah; do

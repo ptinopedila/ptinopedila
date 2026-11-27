@@ -57,7 +57,6 @@ modules:
       packages:
         - ddccontrol-gtk
         - file-roller-nautilus
-        - google-carlito-fonts
         # Word lookup popup and clipboard.
         - zenity
         - xdg-terminal-exec
