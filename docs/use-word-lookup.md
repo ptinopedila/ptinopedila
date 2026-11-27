@@ -6,10 +6,11 @@ Run the setup recipe as your regular user:
 ujust install-word-lookup
 ```
 
-The recipe installs Antigravity CLI in `~/.local/bin` if it is missing,
-installs Raffi through Homebrew if needed, and adds the `word` keyword.
-It enables Raffi's native interface, which supports script filters.
-Reopen Raffi after setup.
+The recipe installs Antigravity CLI in `~/.local/bin` if it is missing
+and installs Raffi through Homebrew if needed. For a fresh profile it creates a
+native Raffi configuration with a **Look up a word** launcher and the `word`
+keyword. If you already have a personal configuration, setup prints its path
+and the exact block to add. Reopen Raffi after saving.
 
 Type `word efforvecent` and press Enter.
 The Zenity popup shows spelling, meanings, examples, and synonyms.
@@ -69,12 +70,17 @@ Availability depends on the app and account.
 ## Repair setup
 
 Run `ujust install-word-lookup` again.
-The installer preserves unrelated Raffi settings and comments, and it keeps
-the first backup at `~/.config/raffi/raffi.yaml.before-word-lookup`.
-If `XDG_CONFIG_HOME` is set, the configuration lives there instead.
-For symlinked configurations, the backup is next to the target file.
-An existing unrelated `word` keyword or skill causes setup to stop with
-an explanation instead of replacing it.
+Setup recognizes a missing or empty file and the exact starter written by the
+previous ptinopedila installer. It leaves personal files and dotfile symlinks
+in place. If your existing `word` shortcut already works, you are done.
+
+For a personal configuration, press **Ctrl+L** in Files, paste the full path
+printed by setup, and press **Enter**. Check your script filters, web searches,
+and text snippets for the keyword `word`. If another command uses it, choose a
+different keyword for the new filter. Setup prints a YAML block with instructions
+for adding only the headings your file needs. Use the native interface to run it.
+If you launch Raffi with a custom configuration path, pass that same path to the
+helper with `--config`.
 
 To configure only Raffi, run:
 

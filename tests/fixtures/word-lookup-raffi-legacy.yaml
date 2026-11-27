@@ -1,0 +1,11 @@
+general:
+  ui_type: native
+addons:
+  script_filters:
+  - name: Word lookup
+    keyword: word
+    command: /usr/libexec/ptinopedila/word-lookup
+    args:
+    - --raffi
+    - --
+    action: /usr/libexec/ptinopedila/word-lookup --encoded -- {value}

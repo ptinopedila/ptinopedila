@@ -102,15 +102,17 @@ with open(os.environ['PTINOPEDILA_TEST_LOG'],'a') as output:
             assert calls == [['/usr/libexec/ptinopedila/toggle-mac-randomization']], calls
         print(f'PASS baked recipe backend routing: {recipe}')
 
-    # Run the real comment-preserving YAML mutation using the image interpreter.
+    # Exercise the installed helper with only the Python standard library.
     yaml_path = root / 'raffi.yaml'
-    yaml_path.write_text('# retained comment\ngeneral:\n  ui_type: native\n')
-    run_checked(['/usr/libexec/ptinopedila/configure-word-lookup-raffi', '--config', str(yaml_path)], check=True)
-    from ruamel.yaml import YAML
-    content = YAML().load(yaml_path.read_text())
-    assert content['addons']['script_filters'][0]['keyword'] == 'word'
-    assert '# retained comment' in yaml_path.read_text()
-    print('PASS real ruamel YAML mutation and comment preservation')
+    setup = ['/usr/bin/python3', '-IS', '/usr/libexec/ptinopedila/configure-word-lookup-raffi',
+             '--config', str(yaml_path)]
+    run_checked(setup, check=True)
+    assert 'keyword: word' in yaml_path.read_text()
+    personal_config = '# retained comment\ngeneral:\n  ui_type: native\n'
+    yaml_path.write_text(personal_config)
+    result = run_checked(setup, check=True, capture_output=True, text=True)
+    assert yaml_path.read_text() == personal_config and str(yaml_path) in result.stdout
+    print('PASS fresh and personal Raffi configuration checks')
 
     # Verify the real office wrapper preserves filenames and selects LibreOffice.
     source = root / 'document with spaces.odt'

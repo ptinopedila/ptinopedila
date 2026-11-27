@@ -1,98 +1,126 @@
 #!/usr/bin/python3
-"""Add the word keyword to Raffi without replacing other settings or comments."""
+"""Install a fresh Raffi starter or show how to add word lookup by hand."""
 
 from __future__ import annotations
 
 import argparse
-import io
+import hashlib
+import json
 import os
 from pathlib import Path
-import shutil
 import shlex
+import stat
 import sys
 import tempfile
+from textwrap import indent
 
-from ruamel.yaml import YAML
-from ruamel.yaml.comments import CommentedMap
-from ruamel.yaml.error import YAMLError
+# Exact output of the previous installer for a missing config and the installed
+# helper path. See tests/fixtures/word-lookup-raffi-legacy.yaml.
+LEGACY_STARTER_SHA256 = "f2aaccd0613e700a39552f63715e6175a53555c01f71084d24e4154cd00ca938"
+
+
+def manual_setup(path: Path, item: str, launcher: str) -> None:
+    print(f"""We found an existing Raffi configuration and left it untouched.
+Open Files, press Ctrl+L, paste the path below, and press Enter.
+{path}
+
+Check whether a script filter, web search, or text snippet already uses the
+keyword 'word'. If it already runs this helper, you can keep using it. If it
+belongs to another command, choose a different keyword for the new filter.
+
+Use the block below. If both headings exist, copy only the list item starting
+with the dash and align it with the other items. If only addons exists, copy
+from script_filters down. If neither exists, copy the whole block.
+
+addons:
+  script_filters:
+{indent(item, '    ')}
+Raffi's native interface runs script filters. In your existing general section,
+set ui_type to native. If that section is missing, add the following block.
+
+general:
+  ui_type: native
+
+Raffi 0.17 also needs an ordinary launcher. If you have none, add this block
+at the top level.
+
+{launcher}
+Save the file and reopen Raffi.""")
 
 
 def configure(path: Path, helper: Path, *, check: bool = False) -> None:
-    # Update the target of a dotfiles symlink, preserving the symlink itself.
-    path = path.expanduser().resolve()
-    yaml = YAML()
-    yaml.preserve_quotes = True
-    original = path.read_text(encoding="utf-8") if path.exists() else ""
-    config = yaml.load(original)
-    if config is None:
-        config = CommentedMap()
-    if not isinstance(config, dict):
-        raise ValueError("Raffi configuration must be a YAML mapping.")
-    for key in ("general", "addons"):
-        config.setdefault(key, CommentedMap())
-        if not isinstance(config[key], dict):
-            raise ValueError(f"Raffi {key} must be a mapping.")
-    addons = config["addons"]
-    addons.setdefault("script_filters", [])
-    filters = addons["script_filters"]
-    if not isinstance(filters, list) or not all(isinstance(item, dict) for item in filters):
-        raise ValueError("Raffi script_filters must be a list of mappings.")
-    entry = {
-        "name": "Word lookup",
-        "keyword": "word",
-        "command": str(helper),
-        "args": ["--raffi", "--"],
-        "action": f"{shlex.quote(str(helper))} --encoded -- {{value}}",
-    }
-    matches = [item for item in filters if item.get("keyword") == "word"]
-    if any(item.get("command") != str(helper) for item in matches):
-        raise ValueError("The Raffi keyword 'word' is already in use. Rename that keyword and retry.")
-    for kind in ("web_searches", "text_snippets"):
-        items = addons.get(kind, []) or []
-        if not isinstance(items, list) or not all(isinstance(item, dict) for item in items):
-            raise ValueError(f"Raffi {kind} must be a list of mappings.")
-        if any(item.get("keyword") == "word" for item in items):
-            raise ValueError(f"The Raffi keyword 'word' is already used by {kind}.")
-    if config["general"].get("ui_type") == "native" and matches == [entry]:
-        print(f"Word lookup is already configured in {path}.")
-        return
-    config["general"]["ui_type"] = "native"
-    for item in matches:
-        filters.remove(item)
-    filters.append(entry)
-    output = io.StringIO()
-    yaml.dump(config, output)
-    updated = output.getvalue()
+    path = path.expanduser().absolute()
+    command = json.dumps(str(helper), ensure_ascii=False)
+    action = json.dumps(f"{shlex.quote(str(helper))} --encoded -- {{value}}", ensure_ascii=False)
+    item = (f"- name: Word lookup\n  keyword: word\n  command: {command}\n"
+            f'  args: ["--raffi", "--"]\n  action: {action}\n')
+    # Raffi 0.17 searches PATH for the launcher binary. env accepts an absolute helper path.
+    launcher = f"word-lookup:\n  binary: env\n  args: [{command}]\n  description: Look up a word\n"
+    starter = (f"general:\n  ui_type: native\n\n{launcher}\naddons:\n  script_filters:\n"
+               + indent(item, "    ")).encode()
+    try:
+        previous = path.lstat()
+    except FileNotFoundError:
+        previous = None
+
+    if previous is not None:
+        # Keep dotfile symlinks (including dangling ones), devices, and personal
+        # files as they are. Only small, byte-identical starters are managed.
+        contents = None
+        if stat.S_ISREG(previous.st_mode) and previous.st_size <= max(len(starter), 1024):
+            contents = path.read_bytes()
+        if contents == starter:
+            if not check:
+                print(f"Word lookup is already configured in {path}. Reopen Raffi and type word.")
+            return
+        if contents is None or (contents and hashlib.sha256(contents).hexdigest() != LEGACY_STARTER_SHA256):
+            if not check:
+                manual_setup(path, item, launcher)
+            return
     if check:
         return
+
     path.parent.mkdir(parents=True, exist_ok=True)
-    if path.exists():
-        backup = path.with_name(path.name + ".before-word-lookup")
-        if not backup.exists():
-            shutil.copy2(path, backup)
-    with tempfile.NamedTemporaryFile(mode="w", encoding="utf-8", dir=path.parent,
-                                     delete=False) as temporary:
-        replacement = Path(temporary.name)
+    with tempfile.NamedTemporaryFile(dir=path.parent, delete=False) as out:
+        temporary = Path(out.name)
         try:
-            temporary.write(updated)
-            temporary.flush()
-            os.fchmod(temporary.fileno(), path.stat().st_mode & 0o777 if path.exists() else 0o600)
-            os.replace(replacement, path)
-        finally:
-            replacement.unlink(missing_ok=True)
-    print(f"Configured word lookup in {path}.")
+            out.write(starter)
+            out.flush()
+        except OSError:
+            temporary.unlink(missing_ok=True)
+            raise
+    try:
+        if previous is None:
+            # Publish a complete file without clobbering one created during setup.
+            try:
+                os.link(temporary, path)
+            except FileExistsError:
+                manual_setup(path, item, launcher)
+                return
+        else:
+            current = path.lstat()
+            if (current.st_dev, current.st_ino, current.st_ctime_ns) != (
+                previous.st_dev, previous.st_ino, previous.st_ctime_ns
+            ):
+                manual_setup(path, item, launcher)
+                return
+            temporary.chmod(previous.st_mode & 0o777)
+            os.replace(temporary, path)
+    finally:
+        temporary.unlink(missing_ok=True)
+    print(f"Configured word lookup in {path}. Reopen Raffi and type word followed by your query.")
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--config", type=Path, default=Path(
-        os.environ.get("XDG_CONFIG_HOME", str(Path.home() / ".config"))) / "raffi/raffi.yaml")
+        os.environ.get("XDG_CONFIG_HOME") or Path.home() / ".config") / "raffi/raffi.yaml")
     parser.add_argument("--helper", type=Path, default=Path(__file__).resolve().with_name("word-lookup"))
-    parser.add_argument("--check", action="store_true", help="Check for conflicts without writing")
+    parser.add_argument("--check", action="store_true", help="Inspect the config without writing or printing instructions")
     args = parser.parse_args()
     try:
         configure(args.config, args.helper.resolve(), check=args.check)
-    except (OSError, ValueError, YAMLError) as error:
+    except OSError as error:
         print(f"Cannot configure Raffi: {error}", file=sys.stderr)
         return 1
     return 0
