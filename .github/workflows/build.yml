@@ -34,7 +34,7 @@ jobs:
       - name: Install test dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install --yes zsh python3-ruamel.yaml
+          sudo apt-get install --yes zsh
 
       - name: Check shell syntax
         run: |

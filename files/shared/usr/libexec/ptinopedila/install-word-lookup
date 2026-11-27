@@ -146,7 +146,6 @@ def main() -> int:
                 if file.is_file():
                     bundle.write(file, Path("word-lookup") / file.relative_to(installed_skill))
         subprocess.run(configure, check=True)
-        print("Ready. Reopen Raffi, type word followed by a word, and press Enter.")
         print("If login is needed, the popup offers to open Antigravity in a terminal.")
         print(f"Skill ZIP for chat apps with skill uploads: {archive}")
         return 0

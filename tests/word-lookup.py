@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import base64
+from contextlib import redirect_stdout
 import hashlib
 import importlib.machinery
 import importlib.util
@@ -19,7 +20,6 @@ import unittest
 from unittest.mock import patch
 import zipfile
 
-from ruamel.yaml import YAML
 
 sys.dont_write_bytecode = True
 
@@ -63,40 +63,52 @@ addons:
         self.config.write_text(original)
         link = self.root / "link.yaml"
         link.symlink_to(self.config)
-        configure.configure(link, self.helper)
-        first = self.config.read_bytes()
-        configure.configure(link, self.helper)
-        self.assertEqual(first, self.config.read_bytes())
+        output = io.StringIO()
+        with redirect_stdout(output):
+            configure.configure(link, self.helper)
+            configure.configure(link, self.helper)
         self.assertTrue(link.is_symlink())
-        self.assertIn(b"# My launcher", first)
-        self.assertIn(b"# Keep icons off", first)
-        config = YAML().load(first)
-        self.assertTrue(config["general"]["no_icons"])
-        filters = config["addons"]["script_filters"]
-        self.assertEqual([item["keyword"] for item in filters], ["dir", "word"])
-        self.assertEqual(self.config.with_suffix(".yaml.before-word-lookup").read_text(), original)
+        self.assertEqual(self.config.read_text(), original)
+        self.assertIn(str(link), output.getvalue())
+        self.assertIn('    - name: Word lookup', output.getvalue())
+        self.assertIn('Ctrl+L', output.getvalue())
 
-    def test_missing_config_and_dry_run(self) -> None:
+    def test_missing_and_empty_config_and_dry_run(self) -> None:
         configure.configure(self.config, self.helper, check=True)
         self.assertFalse(self.config.exists())
-        configure.configure(self.config, self.helper)
-        config = YAML().load(self.config.read_text())
-        self.assertEqual(config["general"]["ui_type"], "native")
-        self.assertEqual(len(config["addons"]["script_filters"]), 1)
+        for initial in (None, b''):
+            with self.subTest(initial=initial):
+                if initial is not None:
+                    self.config.write_bytes(initial)
+                configure.configure(self.config, self.helper)
+                starter = self.config.read_text()
+                self.assertIn('  ui_type: native', starter)
+                self.assertEqual(starter.count('keyword: word'), 1)
+                self.assertIn('  binary: env\n', starter)
+                before = self.config.stat().st_mtime_ns
+                configure.configure(self.config, self.helper)
+                self.assertEqual(self.config.stat().st_mtime_ns, before)
 
     def test_conflicts_and_invalid_yaml_leave_original_untouched(self) -> None:
-        for source in (
-            "addons: {script_filters: [{keyword: word, command: /custom}]}\n",
-            "addons: {web_searches: [{keyword: word, url: https://example.com}]}\n",
-            "addons: {script_filters: invalid}\n",
-            "addons: {}\naddons: {}\n",
-            "[invalid\n",
-        ):
-            with self.subTest(source=source):
-                self.config.write_text(source)
-                with self.assertRaises((ValueError, configure.YAMLError)):
+        for original in (b'addons: {script_filters: [{keyword: word, command: /custom}]}',
+                         b'addons: {web_searches: [{keyword: word}]}', b'[invalid', b'\xff'):
+            with self.subTest(original=original):
+                self.config.write_bytes(original)
+                output = io.StringIO()
+                with redirect_stdout(output):
                     configure.configure(self.config, self.helper)
-                self.assertEqual(self.config.read_text(), source)
+                self.assertEqual(self.config.read_bytes(), original)
+                self.assertIn(str(self.config), output.getvalue())
+                self.assertIn('keyword', output.getvalue())
+
+    def test_unmodified_legacy_starter(self) -> None:
+        legacy = (ROOT / 'tests/fixtures/word-lookup-raffi-legacy.yaml').read_bytes()
+        self.config.write_bytes(legacy)
+        configure.configure(self.config, self.helper)
+        self.assertIn('  binary:', self.config.read_text())
+        self.config.write_bytes(legacy + b'# mine\n')
+        configure.configure(self.config, self.helper)
+        self.assertEqual(self.config.read_bytes(), legacy + b'# mine\n')
 
     def test_skill_link_updates_and_copy_preserves_personal_changes(self) -> None:
         source = self.root / "image/word-lookup"
@@ -133,13 +145,17 @@ addons:
                 patch.object(sys, "argv", ["install-word-lookup"]):
             self.assertEqual(installer.main(), 0)
             self.assertEqual(installer.main(), 0)
-        config = YAML().load((self.root / "config/raffi/raffi.yaml").read_text())
-        self.assertEqual(len(config["addons"]["script_filters"]), 1)
+        config = (self.root / "config/raffi/raffi.yaml").read_text()
+        self.assertEqual(config.count("keyword: word"), 1)
         primary = self.root / ".agents/skills/word-lookup"
         self.assertTrue(primary.is_symlink())
         with zipfile.ZipFile(self.root / "data/ptinopedila/word-lookup.zip") as archive:
             self.assertEqual(archive.read("word-lookup/SKILL.md"), (primary / "SKILL.md").read_bytes())
 
+        # Reinstalling the skill still succeeds when Raffi needs manual setup.
+        personal_config = "# Personal launchers\naddons: {script_filters: []}\n"
+        config_path = self.root / "config/raffi/raffi.yaml"
+        config_path.write_text(personal_config)
         # A personal skill may have an epoch timestamp after extraction.
         primary.unlink()
         primary.mkdir()
@@ -153,6 +169,7 @@ addons:
                 patch.object(sys, "argv", ["install-word-lookup", "--copy-skill"]):
             self.assertEqual(installer.main(), 0)
         with zipfile.ZipFile(self.root / "data/ptinopedila/word-lookup.zip") as archive:
+            self.assertEqual(config_path.read_text(), personal_config)
             self.assertEqual(archive.read("word-lookup/SKILL.md"), b"personal")
             self.assertEqual(archive.getinfo("word-lookup/SKILL.md").date_time[:3],
                              (1980, 1, 1))

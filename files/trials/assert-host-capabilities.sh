@@ -22,18 +22,6 @@ for extension in "${extensions[@]}"; do
         exit 1
     fi
 done
-python3 - <<'PY'
-from io import StringIO
-from ruamel.yaml import YAML
-source = '# preserve this comment\nkey: value\n'
-parser = YAML()
-value = parser.load(source)
-value['key'] = 'changed'
-result = StringIO()
-parser.dump(value, result)
-assert '# preserve this comment' in result.getvalue()
-assert 'key: changed' in result.getvalue()
-PY
 fc-cache -f
 fc-match Carlito --format '%{family}\n' | grep -Fx Carlito
 sensors --version
