@@ -1,5 +1,5 @@
 > **Created:** `2026-08-26T05:43+03:00` · **Last updated:**
-> `2026-11-27T23:41+02:00`
+> `2026-11-28T00:04+02:00`
 
 # Install and manage applications
 
@@ -17,21 +17,6 @@ Do not use DNF or `rpm-ostree` package layering to install software on the
 host. Layered packages alter the image deployment and can interfere with image
 updates. If a missing host component cannot run through Flatpak, Homebrew, or a
 project environment, propose adding it to the Ptinopedila image.
-
-## Use Homebrew fonts across accounts
-
-The first account on the workstation owns the shared Homebrew installation.
-Its automatic research-font bundle installs Carlito in
-`/usr/local/share/fonts/homebrew`. Other accounts can use the font as soon as
-that install finishes, including accounts created later. Fontconfig uses
-Carlito for documents that request Calibri when Calibri is unavailable.
-
-New Homebrew font casks use the same directory. If the Brew owner previously
-installed Carlito in their personal font directory, the managed setup moves it
-on the next run. To move another previously installed font, run
-`brew reinstall --cask --fontdir=/usr/local/share/fonts/homebrew font-inter`
-as the Brew owner, replacing `font-inter` with the relevant cask. Reopen
-applications that were running during the install to refresh their font lists.
 
 ## Install graphical applications with Bazaar
 
@@ -129,6 +114,8 @@ brew uninstall ripgrep
 
 Homebrew casks are not the normal way to install graphical Linux applications
 on Ptinopedila; use Flatpak instead.
+
+See [Use Homebrew fonts across accounts](fonts.md) for font installation.
 
 ## Updates
 
