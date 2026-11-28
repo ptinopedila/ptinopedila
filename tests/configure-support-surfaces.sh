@@ -8,7 +8,7 @@ readonly downstream_bonedigger="${repository_root}/files/shared/usr/share/ublue-
 readonly test_directory="$(mktemp -d)"
 readonly report_file="${test_directory}/usr/libexec/bonedigger-report"
 readonly current_report_file="${test_directory}/usr/libexec/current-bonedigger-report"
-readonly welcome_config="${test_directory}/etc/umotd/config.json"
+readonly welcome_config="${test_directory}/etc/uwelcome/config.json"
 readonly applications_directory="${test_directory}/usr/share/applications"
 trap 'rm -rf -- "${test_directory}"' EXIT
 
@@ -137,13 +137,10 @@ if grep -Eq 'projectbluefin/common|ublue-os/bluefin/discussions' "${current_repo
 fi
 
 jq -e '
-  .commands == [{"cmd": "ujust --choose", "desc": "cmd_list"}] and
-  .["tips-presets"] == ["gnome"] and
-  .links == [
-    {"name": "source", "url": "https://github.com/ptinopedila/ptinopedila"},
-    {"name": "issues", "url": "https://github.com/ptinopedila/ptinopedila/issues"},
-    {"name": "docs", "url": "https://github.com/ptinopedila/ptinopedila/tree/main/docs"}
-  ]
+  .greeting.message == "Welcome to ptinopedila." and
+  .commands == [] and .links == [] and .motd.commands == [] and
+  (.motd.messages | length == 1) and
+  (.motd.messages[0] | contains("uwelcome toggle") and contains("brew install ripgrep"))
 ' "${welcome_config}" >/dev/null
 
 community="${applications_directory}/discourse.desktop"

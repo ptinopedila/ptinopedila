@@ -25,5 +25,6 @@ for test in \
 done
 python3 tests/install-deepseek-codex.py
 python3 tests/package-audit.py
+python3 tests/render-terminal-greeting.py
 /usr/bin/python3 tests/word-lookup.py
 echo 'All baked-image offline recipe regressions passed.'
