@@ -14,7 +14,8 @@ RUN --mount=type=bind,from=trial-inputs,target=/ctx \
 RUN --mount=type=bind,from=trial-inputs,target=/ctx \
     bash /ctx/files/trials/provision.sh && \
     bash /ctx/files/trials/workstation.sh "$TRIAL_VARIANT" && \
-    bash /ctx/files/trials/virtualization.sh
+    bash /ctx/files/trials/virtualization.sh && \
+    python3 /ctx/files/scripts/configure-desktop-branding.py
 
 RUN --mount=type=bind,from=trial-inputs,target=/ctx \
     --mount=type=secret,id=trial-public-key,required=true \

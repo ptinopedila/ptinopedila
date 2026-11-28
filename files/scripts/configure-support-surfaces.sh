@@ -134,7 +134,10 @@ for welcome_config in "${welcome_configs[@]}"; do
     welcome_index=$((welcome_index + 1))
     temporary_welcome="${temporary_directory}/welcome-${welcome_index}.json"
     jq '
-        .links = [
+        (if has("tips-presets") then .["tips-presets"] -= ["bluefin"] else . end)
+        | (if has("commands") then .commands |= map(select(.cmd != "ujust bluefin-cli")) else . end)
+        | (if .greeting.prefix == "󱍢 " then .greeting.prefix = "" else . end)
+        | .links = [
             {
                 "name": "source",
                 "url": "https://github.com/ptinopedila/ptinopedila"
@@ -144,8 +147,8 @@ for welcome_config in "${welcome_configs[@]}"; do
                 "url": "https://github.com/ptinopedila/ptinopedila/issues"
             },
             {
-                "name": "Bluefin upstream docs",
-                "url": "https://docs.projectbluefin.io/"
+                "name": "docs",
+                "url": "https://github.com/ptinopedila/ptinopedila/tree/main/docs"
             }
         ]
     ' "${welcome_config}" > "${temporary_welcome}"
@@ -158,16 +161,17 @@ system_update="${applications_directory}/system-update.desktop"
 
 sed -E \
     -e '/^(Name|Comment)\[[^]]+\]=/d' \
-    -e 's|^Exec=.*$|Exec=xdg-open https://community.projectbluefin.io/|' \
-    -e 's|^Name=.*$|Name=Bluefin Community (upstream)|' \
-    -e 's|^Comment=.*$|Comment=Community support for the upstream Bluefin base|' \
+    -e 's|^Exec=.*$|Exec=xdg-open https://github.com/ptinopedila/ptinopedila/issues|' \
+    -e 's|^Name=.*$|Name=Ptinopedila Support|' \
+    -e 's|^Comment=.*$|Comment=Get help with ptinopedila|' \
     "${community}" \
     > "${temporary_directory}/discourse.desktop"
 
 sed -E \
     -e '/^(Name|Comment)\[[^]]+\]=/d' \
-    -e 's|^Name=.*$|Name=Bluefin Documentation (upstream)|' \
-    -e 's|^Comment=.*$|Comment=Documentation for the upstream Bluefin base|' \
+    -e 's|^Exec=.*$|Exec=xdg-open https://github.com/ptinopedila/ptinopedila/tree/main/docs|' \
+    -e 's|^Name=.*$|Name=Ptinopedila Documentation|' \
+    -e 's|^Comment=.*$|Comment=Read the ptinopedila user guide|' \
     "${documentation}" \
     > "${temporary_directory}/documentation.desktop"
 

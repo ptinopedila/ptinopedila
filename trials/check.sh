@@ -13,6 +13,9 @@ podman run "${options[@]}" --user 1000:1000 --tmpfs /tmp:rw,mode=1777 \
     "$image" /src/files/trials/check-regressions.sh /src
 podman run "${options[@]}" --security-opt label=disable --volume "$PWD:/src:ro" \
     --entrypoint bash "$image" -euc '
+    XDG_CACHE_HOME=/tmp XDG_CONFIG_HOME=$(mktemp -d) GSETTINGS_BACKEND=dconf \
+        /usr/bin/python3 /src/tests/desktop-menu.py "$1"
+    bash /src/tests/desktop-branding.sh
     systemd-tmpfiles --create /usr/lib/tmpfiles.d/ptinopedila-brew-fonts.conf
     test "$(stat -c "%a:%u" /usr/local/share/fonts/homebrew)" = 755:1000
     grep -Fxq HOMEBREW_CASK_OPTS=--fontdir=/usr/local/share/fonts/homebrew /etc/homebrew/brew.env
@@ -24,4 +27,4 @@ podman run "${options[@]}" --security-opt label=disable --volume "$PWD:/src:ro" 
         jq -e --arg ref "ghcr.io/ptinopedila/ptinopedila-testing-$base" \
             '\''.transports.docker[$ref] == [{type:"sigstoreSigned",keyPath:"/usr/lib/pki/containers/ptinopedila.pub",signedIdentity:{type:"matchRepository"}}]'\'' \
             /etc/containers/policy.json >/dev/null
-    done'
+    done' bash "$1"

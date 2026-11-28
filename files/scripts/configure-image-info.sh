@@ -62,14 +62,8 @@ fedora_version="$(
     sed -n 's/^VERSION_ID=//p' "${os_release}" | head -n 1 | tr -d '"'
 )"
 readonly fedora_version
-version_codename="$(
-    sed -n 's/^VERSION_CODENAME=//p' "${os_release}" | head -n 1
-)"
-version_codename="${version_codename#\"}"
-version_codename="${version_codename%\"}"
-readonly version_codename
-if [[ -z "${fedora_version}" || -z "${version_codename}" ]]; then
-    echo "VERSION_ID or VERSION_CODENAME is missing from: ${os_release}" >&2
+if [[ -z "${fedora_version}" ]]; then
+    echo "VERSION_ID is missing from: ${os_release}" >&2
     exit 1
 fi
 
@@ -132,6 +126,12 @@ awk \
             replacement["SUPPORT_URL"] = "SUPPORT_URL=\"" support_url "\""
             replacement["BUG_REPORT_URL"] = "BUG_REPORT_URL=\"" support_url "\""
 
+            replacement["LOGO"] = "LOGO=computer-symbolic"
+            replacement["VENDOR_NAME"] = "VENDOR_NAME=ptinopedila"
+            replacement["VENDOR_URL"] = "VENDOR_URL=\"" project_url "\""
+            order[12] = "LOGO"
+            order[13] = "VENDOR_NAME"
+            order[14] = "VENDOR_URL"
             order[1] = "NAME"
             order[2] = "PRETTY_NAME"
             order[3] = "ID"
@@ -147,7 +147,7 @@ awk \
         {
             key = $0
             sub(/=.*/, "", key)
-            if (key == "CPE_NAME") {
+            if (key == "CPE_NAME" || key == "VERSION_CODENAME") {
                 next
             }
             if (key in replacement) {
@@ -160,7 +160,7 @@ awk \
             print
         }
         END {
-            for (position = 1; position <= 11; position++) {
+            for (position = 1; position <= 14; position++) {
                 key = order[position]
                 if (!seen[key]) {
                     print replacement[key]
@@ -169,9 +169,8 @@ awk \
         }
     ' "${os_release}" > "${temporary_os_release}"
 
-printf 'ptinopedila release %s (%s)\n' \
+printf 'ptinopedila release %s\n' \
     "${fedora_version}" \
-    "${version_codename}" \
     > "${temporary_fedora_release}"
 
 install -m 0644 "${temporary_image_info}" "${image_info}"

@@ -1,0 +1,37 @@
+#!/usr/bin/python3
+"""At login, drop explicit GNOME selections for artwork retired by the image."""
+from pathlib import Path
+import re
+from urllib.parse import urlsplit
+
+from gi.repository import Gio
+
+
+def retired(uri: str) -> bool:
+    try:
+        parts = urlsplit(uri)
+    except ValueError:
+        return False
+    if parts.scheme != "file" or parts.netloc not in ("", "localhost"):
+        return False
+    filename = Gio.File.new_for_uri(uri).get_path()
+    if not filename:
+        return False
+    path = Path(filename)
+    if path.is_relative_to("/usr/share/backgrounds/bluefin"):
+        return True
+    return path.parent == Path("/etc/bazaar") and bool(
+        re.fullmatch(r"\d+-bluefin-(?:day|night)\.(?:png|jxl)", path.name)
+    )
+
+
+for schema, keys in (
+    ("org.gnome.desktop.background", ("picture-uri", "picture-uri-dark")),
+    ("org.gnome.desktop.screensaver", ("picture-uri",)),
+):
+    settings = Gio.Settings.new(schema)
+    for key in keys:
+        saved = settings.get_user_value(key)
+        if saved and settings.is_writable(key) and retired(saved.get_string()):
+            settings.reset(key)
+Gio.Settings.sync()

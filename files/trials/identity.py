@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import shlex
 import sys
 import tomllib
@@ -42,7 +43,7 @@ for line in lines:
         fields[key] = tokens[0] if tokens else ""
 replacements: dict[str, str] = {
     "NAME": "ptinopedila",
-    "PRETTY_NAME": f"{name} ({fields.get('PRETTY_NAME', variant)})",
+    "PRETTY_NAME": name,
     "ID": "ptinopedila",
     "ID_LIKE": " ".join(dict.fromkeys([
         fields.get("ID", "fedora"), *fields.get("ID_LIKE", "fedora").split()
@@ -50,6 +51,9 @@ replacements: dict[str, str] = {
     "VARIANT_ID": name,
     "IMAGE_ID": name,
     "DEFAULT_HOSTNAME": name,
+    "LOGO": "computer-symbolic",
+    "VENDOR_NAME": "ptinopedila",
+    "VENDOR_URL": project,
     "HOME_URL": project,
     "DOCUMENTATION_URL": f"{project}/tree/main/docs",
     "SUPPORT_URL": f"{project}/issues",
@@ -58,7 +62,7 @@ replacements: dict[str, str] = {
 new_lines: list[str] = []
 for line in lines:
     key = line.split("=", 1)[0]
-    if key == "CPE_NAME":
+    if key in {"CPE_NAME", "VERSION_CODENAME"}:
         continue
     if key in replacements:
         new_lines.append(f"{key}={json.dumps(replacements.pop(key))}")
@@ -70,8 +74,7 @@ release_file.write_text("\n".join(new_lines) + "\n")
 fedora_release: Path = Path("/usr/lib/fedora-release")
 if fedora_release.exists():
     fedora_release.write_text(
-        f"ptinopedila release {fields.get('VERSION_ID', 'unknown')} "
-        f"({fields.get('VERSION_CODENAME', variant)})\n"
+        f"ptinopedila release {fields.get('VERSION_ID', 'unknown')}\n"
     )
 
 applications: Path = Path("/usr/share/applications")
@@ -83,7 +86,7 @@ launchers: dict[str, tuple[str, str]] = {
 # Redirect old Bluefin support shortcuts where present, too.
 for filename, label, url in [
     ("documentation.desktop", "Ptinopedila documentation", f"{project}/tree/main/docs"),
-    ("discourse.desktop", "Bluefin community (upstream)", "https://community.projectbluefin.io/"),
+    ("discourse.desktop", "Ptinopedila support", f"{project}/issues"),
 ]:
     if (applications / filename).exists():
         launchers[filename] = (label, url)
@@ -96,7 +99,7 @@ update_launcher: Path = applications / "system-update.desktop"
 if update_launcher.exists():
     update_launcher.write_text(update_launcher.read_text().replace("Bluefin", "ptinopedila"))
 
-# Home's terminal greeting links to our source, our issues, and upstream docs.
+# Home's terminal greeting links to our source, our issues, and our documentation.
 # Classic renders a Markdown template; Utah reads a system TOML configuration.
 if variant == "classic":
     welcome = Path("/usr/share/ublue-os/motd/template.md")
@@ -104,19 +107,23 @@ if variant == "classic":
         "[Issues](https://issues.projectbluefin.io)": f"[Issues]({project}/issues)",
         "[Ask Bluefin](https://ask.projectbluefin.io)": f"[Source]({project})",
         "[Documentation](https://docs.projectbluefin.io)":
-            "[Bluefin upstream docs](https://docs.projectbluefin.io)",
+            f"[Documentation]({project}/tree/main/docs)",
     }
     template = welcome.read_text()
     for old, new in substitutions.items():
         if old not in template and new not in template:
             raise ValueError(f"Missing welcome link in {welcome}: {old}")
         template = template.replace(old, new)
-    welcome.write_text(template)
+    template = template.replace("󱍢 Welcome to Bluefin", "Welcome to ptinopedila")
+    welcome.write_text("".join(line for line in template.splitlines(True) if "ujust bluefin-cli" not in line))
 else:
     welcome = Path("/etc/uwelcome/config.toml")
     template = welcome.read_text().replace(
         '"https://issues.projectbluefin.io/"', f'"{project}/issues"'
     )
+    template = template.replace("https://docs.projectbluefin.io/", f"{project}/tree/main/docs")
+    template = re.sub(r'(?m)^\[\[commands\]\]\ncmd = "ujust bluefin-cli"\ndesc = "[^"\n]*"\n', "", template)
+    template = template.replace('prefix = "󱍢 "', 'prefix = ""')
     links = {link["name"]: link["url"] for link in tomllib.loads(template)["links"]}
     if links.get("issues") != f"{project}/issues":
         raise ValueError(f"Missing downstream issue link in {welcome}")

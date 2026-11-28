@@ -100,7 +100,7 @@ grep -Fxq 'HOME_URL="https://github.com/ptinopedila/ptinopedila"' "${os_release}
 grep -Fxq 'DOCUMENTATION_URL="https://github.com/ptinopedila/ptinopedila/tree/main/docs"' "${os_release}"
 grep -Fxq 'SUPPORT_URL="https://github.com/ptinopedila/ptinopedila/issues"' "${os_release}"
 grep -Fxq 'BUG_REPORT_URL="https://github.com/ptinopedila/ptinopedila/issues"' "${os_release}"
-if grep -q '^CPE_NAME=' "${os_release}"; then
+if grep -Eq '^(CPE_NAME|VERSION_CODENAME)=' "${os_release}"; then
   echo "The downstream os-release still claims an upstream CPE identity." >&2
   exit 1
 fi
@@ -109,8 +109,7 @@ for inherited_value in \
   'VERSION="testing-44.20260720 (Silverblue)"' \
   'RELEASE_TYPE=stable' \
   'VERSION_ID=44' \
-  'VERSION_CODENAME="Deinonychus"' \
-  'LOGO=fedora-logo-icon' \
+  'LOGO=computer-symbolic' \
   'SUPPORT_END=2027-05-19' \
   'VARIANT="Silverblue"' \
   "OSTREE_VERSION='testing-44.20260720'" \
@@ -121,7 +120,7 @@ done
 
 [[ "$(readlink "${etc_os_release}")" == "../usr/lib/os-release" ]]
 cmp -s "${os_release}" "${etc_os_release}"
-grep -Fxq 'ptinopedila release 44 (Deinonychus)' "${fedora_release}"
+grep -Fxq 'ptinopedila release 44' "${fedora_release}"
 [[ "$(readlink "${test_directory}/etc/fedora-release")" == "../usr/lib/fedora-release" ]]
 [[ "$(readlink "${test_directory}/etc/redhat-release")" == "fedora-release" ]]
 [[ "$(readlink "${test_directory}/etc/system-release")" == "fedora-release" ]]
