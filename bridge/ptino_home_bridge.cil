@@ -1,0 +1,4 @@
+(type systemd_clonesetup_generator_exec_t)
+(roletype object_r systemd_clonesetup_generator_exec_t)
+(allow initrc_t systemd_clonesetup_generator_exec_t (file (getattr link open read relabelto rename setattr)))
+(allow systemd_clonesetup_generator_exec_t fs_t (filesystem (associate)))

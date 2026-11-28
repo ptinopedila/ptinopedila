@@ -1,0 +1,61 @@
+name: November Home to Classic migration bridge
+
+on:
+  pull_request:
+    paths:
+      - 'bridge/**'
+      - 'cosign.pub'
+      - '.github/workflows/home-classic-bridge.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    name: Build and check the migration bridge
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - &checkout
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - &disk
+        uses: hastd/free-disk-space@68572aeaadb7f76bd408246328e95926323402b5 # v0.1.2
+        with:
+          skip-if-available: '80G'
+      - &cosign
+        uses: sigstore/cosign-installer@881c63bd87e38389154debd8331404ce7ca8a3ab # v4.1.4
+        with:
+          cosign-release: v3.1.6
+          install-dir: /usr/local/bin
+          use-sudo: 'true'
+      - &build
+        name: Verify pinned Home and build the bridge
+        run: sudo bash bridge/build.sh "$RUNNER_TEMP/ptino-bridge-oci"
+
+  release:
+    name: Sign and publish the migration bridge
+    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && github.repository == 'ptinopedila/ptinopedila'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    concurrency:
+      group: publish-ptinopedila-testing-home-bridge
+      cancel-in-progress: false
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - *checkout
+      - *disk
+      - *cosign
+      - *build
+      - name: Publish and verify the signed bridge
+        env:
+          GHCR_TOKEN: ${{ github.token }}
+          SIGNING_SECRET: ${{ secrets.SIGNING_SECRET }}
+        run: |
+          sudo --preserve-env=GITHUB_ACTOR,GHCR_TOKEN,SIGNING_SECRET \
+            bash bridge/publish.sh "$RUNNER_TEMP/ptino-bridge-oci"
