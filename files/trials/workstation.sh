@@ -68,6 +68,12 @@ sed -i \
     -e 's|https://github.com/ublue-os/bluefin/discussions|https://github.com/ptinopedila/ptinopedila/issues|' \
     /usr/libexec/bonedigger-report
 python3 "$source_root/trials/identity.py" "$variant"
+if [[ $variant == classic ]]; then
+    welcome=/usr/share/ublue-os/motd/template.md
+else
+    welcome=/etc/uwelcome/config.toml
+fi
+python3 "$source_root/scripts/configure-terminal-greeting.py" "$welcome"
 
 # Retain production authselect, sysctl and print-service policy.
 install -D -m 0644 "$source_root/secureblue/usr/etc/security/faillock.conf" /etc/security/faillock.conf

@@ -21,16 +21,14 @@ for required_file in \
     fi
 done
 
-welcome_configs=()
-if [[ -n "${WELCOME_CONFIG_FILE:-}" ]]; then
-    welcome_configs+=("${WELCOME_CONFIG_FILE}")
-else
-    for candidate in /etc/uwelcome/config.json /etc/umotd/config.json; do
-        [[ -f "${candidate}" ]] && welcome_configs+=("${candidate}")
-    done
+# UMOTD was the standalone greeting before uWelcome replaced it.
+# When both are installed, UMOTD supplies tips and has a different config.
+welcome_config=${WELCOME_CONFIG_FILE:-/etc/uwelcome/config.json}
+if [[ -z ${WELCOME_CONFIG_FILE:-} && ! -f $welcome_config ]]; then
+    welcome_config=/etc/umotd/config.json
 fi
-if ((${#welcome_configs[@]} == 0)); then
-    echo "Neither the uwelcome nor the umotd configuration exists." >&2
+if [[ ! -f $welcome_config ]]; then
+    echo "System greeting configuration not found: $welcome_config" >&2
     exit 1
 fi
 
@@ -125,35 +123,7 @@ grep -Fq 'export BONEDIGGER_ISSUE_URL := "https://github.com/ptinopedila/ptinope
 grep -Fq 'export BONEDIGGER_FEATURE_URL := "https://github.com/ptinopedila/ptinopedila/issues/new"' \
     "${bonedigger_just}"
 
-welcome_index=0
-for welcome_config in "${welcome_configs[@]}"; do
-    if [[ ! -f "${welcome_config}" ]]; then
-        echo "Welcome configuration not found: ${welcome_config}" >&2
-        exit 1
-    fi
-    welcome_index=$((welcome_index + 1))
-    temporary_welcome="${temporary_directory}/welcome-${welcome_index}.json"
-    jq '
-        (if has("tips-presets") then .["tips-presets"] -= ["bluefin"] else . end)
-        | (if has("commands") then .commands |= map(select(.cmd != "ujust bluefin-cli")) else . end)
-        | (if .greeting.prefix == "󱍢 " then .greeting.prefix = "" else . end)
-        | .links = [
-            {
-                "name": "source",
-                "url": "https://github.com/ptinopedila/ptinopedila"
-            },
-            {
-                "name": "issues",
-                "url": "https://github.com/ptinopedila/ptinopedila/issues"
-            },
-            {
-                "name": "docs",
-                "url": "https://github.com/ptinopedila/ptinopedila/tree/main/docs"
-            }
-        ]
-    ' "${welcome_config}" > "${temporary_welcome}"
-    install -m 0644 "${temporary_welcome}" "${welcome_config}"
-done
+python3 "$(dirname "${BASH_SOURCE[0]}")/configure-terminal-greeting.py" "${welcome_config}"
 
 community="${applications_directory}/discourse.desktop"
 documentation="${applications_directory}/documentation.desktop"
