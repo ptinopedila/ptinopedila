@@ -138,11 +138,11 @@ fi
 
 jq -e '
   .commands == [{"cmd": "ujust --choose", "desc": "cmd_list"}] and
-  .["tips-presets"] == ["bluefin", "gnome"] and
+  .["tips-presets"] == ["gnome"] and
   .links == [
     {"name": "source", "url": "https://github.com/ptinopedila/ptinopedila"},
     {"name": "issues", "url": "https://github.com/ptinopedila/ptinopedila/issues"},
-    {"name": "Bluefin upstream docs", "url": "https://docs.projectbluefin.io/"}
+    {"name": "docs", "url": "https://github.com/ptinopedila/ptinopedila/tree/main/docs"}
   ]
 ' "${welcome_config}" >/dev/null
 
@@ -150,12 +150,12 @@ community="${applications_directory}/discourse.desktop"
 documentation="${applications_directory}/documentation.desktop"
 system_update="${applications_directory}/system-update.desktop"
 
-grep -Fxq 'Name=Bluefin Community (upstream)' "${community}"
-grep -Fxq 'Comment=Community support for the upstream Bluefin base' "${community}"
-grep -Fxq 'Exec=xdg-open https://community.projectbluefin.io/' "${community}"
-grep -Fxq 'Name=Bluefin Documentation (upstream)' "${documentation}"
-grep -Fxq 'Comment=Documentation for the upstream Bluefin base' "${documentation}"
-grep -Fxq 'Exec=flatpak run org.gnome.Papers /usr/share/doc/bluefin/bluefin.pdf' "${documentation}"
+grep -Fxq 'Name=Ptinopedila Support' "${community}"
+grep -Fxq 'Comment=Get help with ptinopedila' "${community}"
+grep -Fxq 'Exec=xdg-open https://github.com/ptinopedila/ptinopedila/issues' "${community}"
+grep -Fxq 'Name=Ptinopedila Documentation' "${documentation}"
+grep -Fxq 'Comment=Read the ptinopedila user guide' "${documentation}"
+grep -Fxq 'Exec=xdg-open https://github.com/ptinopedila/ptinopedila/tree/main/docs' "${documentation}"
 if grep -Eq '^(Name|Comment)\[' "${community}" "${documentation}"; then
   echo "Localized launcher text still hides the upstream label." >&2
   exit 1

@@ -1,3 +1,4 @@
 type: script
 scripts:
   - configure-image-info.sh
+  - configure-desktop-branding.py

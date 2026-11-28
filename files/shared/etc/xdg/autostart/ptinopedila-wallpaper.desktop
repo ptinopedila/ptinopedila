@@ -1,0 +1,6 @@
+[Desktop Entry]
+Type=Application
+Name=Update retired wallpaper selections
+Exec=/usr/libexec/ptinopedila/reset-retired-wallpaper
+OnlyShowIn=GNOME;
+NoDisplay=true
